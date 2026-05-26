@@ -27,9 +27,11 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
   const [generating, setGenerating] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const learnedPct = currentStats.totalPalabras > 0
-    ? Math.round((currentStats.aprendidas / currentStats.totalPalabras) * 100)
+  const rawLearnedPct = currentStats.totalPalabras > 0
+    ? (currentStats.aprendidas / currentStats.totalPalabras) * 100
     : 0;
+  const learnedPctDisplay = rawLearnedPct === 0 ? '0' : rawLearnedPct.toFixed(2);
+
   const seenPct = currentStats.totalPalabras > 0
     ? Math.round((currentStats.mostradas / currentStats.totalPalabras) * 100)
     : 0;
@@ -53,18 +55,22 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
   const handleLearn = () => {
     startTransition(async () => {
       if (word.aprendida) {
-        await unmarkWordAsLearned(usuarioId, word.id);
-        setWord({ ...word, aprendida: false });
-        setCurrentStats((s) => ({ ...s, aprendidas: Math.max(0, s.aprendidas - 1) }));
+        const res = await unmarkWordAsLearned(usuarioId, word.id);
+        if (!res.error) {
+          setWord({ ...word, aprendida: false });
+          setCurrentStats((s) => ({ ...s, aprendidas: Math.max(0, s.aprendidas - 1) }));
+        }
       } else {
-        await markWordAsLearned(usuarioId, word.id);
-        setCurrentStats((s) => ({ ...s, aprendidas: s.aprendidas + 1 }));
-        const next = await getNextWord(word.id, usuarioId);
-        if (next) {
-          setWord(next);
-          setGenSentence(null);
-        } else {
-          setWord({ ...word, aprendida: true });
+        const res = await markWordAsLearned(usuarioId, word.id);
+        if (!res.error) {
+          setCurrentStats((s) => ({ ...s, aprendidas: s.aprendidas + 1 }));
+          const next = await getNextWord(word.id, usuarioId);
+          if (next) {
+            setWord(next);
+            setGenSentence(null);
+          } else {
+            setWord({ ...word, aprendida: true });
+          }
         }
       }
     });
@@ -163,7 +169,7 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
         <div className="stat-card stat-card-4">
           <div className="stat-card-top">
             <div>
-              <div className="stat-value">{learnedPct}%</div>
+              <div className="stat-value">{learnedPctDisplay}%</div>
               <div className="stat-label">Progreso total</div>
             </div>
             <div className="stat-icon">

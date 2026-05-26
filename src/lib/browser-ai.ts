@@ -56,7 +56,7 @@ export async function generateExampleSentence(
       const { done, value } = await reader.read();
       if (done) break;
       if (!value) continue;
-      accumulated = value; // Chrome streams full accumulated text each chunk
+      accumulated += value;
       onChunk?.(cleanText(accumulated));
     }
 
