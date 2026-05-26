@@ -2,45 +2,78 @@
 
 export const AI_UNAVAILABLE = '__AI_NO_DISPONIBLE__';
 
-type WindowWithAI = Window & {
-  ai?: {
-    languageModel?: {
-      create: (opts?: object) => Promise<{ prompt: (text: string) => Promise<string> }>;
-    };
-    createTextSession?: () => Promise<{ prompt: (text: string) => Promise<string> }>;
-  };
-};
+interface LMSession {
+  promptStreaming: (input: string) => ReadableStream<string>;
+  destroy: () => void;
+}
+
+interface LanguageModel {
+  create: (opts?: {
+    expectedInputs?: Array<{ type: string; languages?: string[] }>;
+    expectedOutputs?: Array<{ type: string; languages?: string[] }>;
+    initialPrompts?: Array<{ role: string; content: string }>;
+  }) => Promise<LMSession>;
+}
+
+function getLanguageModel(): LanguageModel | null {
+  if (typeof window === 'undefined') return null;
+  return (window as unknown as { LanguageModel?: LanguageModel }).LanguageModel ?? null;
+}
+
+export function isAiAvailable(): boolean {
+  const lm = getLanguageModel();
+  return lm !== null && typeof lm.create === 'function';
+}
 
 /**
- * Generates a sentence using Chrome's built-in window.ai.
+ * Generates an English sentence using Chrome's built-in LanguageModel (Gemini Nano).
  * Returns AI_UNAVAILABLE if the API is not present or fails.
+ * onChunk is called incrementally as the response streams in.
  */
-export async function generateExampleSentence(word: string): Promise<string> {
+export async function generateExampleSentence(
+  word: string,
+  onChunk?: (partial: string) => void,
+): Promise<string> {
+  const lm = getLanguageModel();
+  if (!lm) return AI_UNAVAILABLE;
+
+  let session: LMSession | null = null;
   try {
-    const w = window as WindowWithAI;
-    const ai = w.ai;
-    if (!ai) return AI_UNAVAILABLE;
+    session = await lm.create({
+      expectedInputs:  [{ type: 'text', languages: ['en'] }],
+      expectedOutputs: [{ type: 'text', languages: ['en'] }],
+      initialPrompts:  [{ role: 'system', content: 'You write short, natural English example sentences for vocabulary learning. Return the sentence only, no explanation, no quotes.' }],
+    });
 
-    // Chrome 127+ uses ai.languageModel.create()
-    if (ai.languageModel?.create) {
-      const session = await ai.languageModel.create();
-      const result = await session.prompt(
-        `Write one short, natural English sentence that uses the word "${word}" meaningfully. Return the sentence only, no explanation.`
-      );
-      if (result?.trim()) return result.trim();
+    const stream = session.promptStreaming(
+      `Write one short, natural English sentence that uses the word "${word}" meaningfully.`
+    );
+
+    const reader = stream.getReader();
+    let accumulated = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      accumulated = value; // Chrome streams full accumulated text each chunk
+      onChunk?.(cleanText(accumulated));
     }
 
-    // Older Chrome flag used ai.createTextSession()
-    if (ai.createTextSession) {
-      const session = await ai.createTextSession();
-      const result = await session.prompt(
-        `Write one short, natural English sentence that uses the word "${word}" meaningfully. Return the sentence only, no explanation.`
-      );
-      if (result?.trim()) return result.trim();
-    }
-
-    return AI_UNAVAILABLE;
+    reader.releaseLock();
+    return cleanText(accumulated) || AI_UNAVAILABLE;
   } catch {
     return AI_UNAVAILABLE;
+  } finally {
+    session?.destroy();
   }
+}
+
+function cleanText(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\*{1,3}([^*]*)\*{1,3}/g, '$1')
+    .replace(/^["']|["']$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

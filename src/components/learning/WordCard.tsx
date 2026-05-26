@@ -73,7 +73,10 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
   const handleGenerate = async () => {
     setGenerating(true);
     setAiUnavailable(false);
-    const s = await generateExampleSentence(word.palabra);
+    setGenSentence(null);
+    const s = await generateExampleSentence(word.palabra, (partial) => {
+      setGenSentence(partial);
+    });
     if (s === AI_UNAVAILABLE) {
       setAiUnavailable(true);
       setGenSentence(null);
@@ -228,7 +231,12 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
                 {genSentence ? '✨ Oración generada con IA' : 'Oración de ejemplo'}
               </div>
               <div className="word-sentence-row">
-                <SentenceTokens sentence={genSentence ?? word.oracion_ejemplo!} />
+                {/* Plain text while streaming, interactive tokens when done */}
+                {genSentence && generating ? (
+                  <p className="word-sentence" style={{ opacity: 0.7 }}>{genSentence}</p>
+                ) : (
+                  <SentenceTokens sentence={genSentence ?? word.oracion_ejemplo!} />
+                )}
                 <button
                   id="btn-speak-sentence"
                   className="icon-audio-button icon-audio-button-sentence"
