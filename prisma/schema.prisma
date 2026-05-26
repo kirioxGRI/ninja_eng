@@ -7,6 +7,16 @@ datasource db {
   provider = "postgresql"
 }
 
+model ia_word {
+  id                 Int       @id @default(autoincrement())
+  palabra            String    @db.VarChar(150)
+  pronunciacion      String?   @db.VarChar(150)
+  traduccion_espanol String    @db.VarChar(150)
+  creado_en          DateTime? @default(now()) @db.Timestamp(6)
+  usuario_id         Int
+  usuario            usuario   @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ia_word_usuario")
+}
+
 model permiso {
   idpermiso      Int              @id @default(autoincrement())
   nombre         String           @unique @db.VarChar(100)
@@ -45,6 +55,7 @@ model usuario {
   id                     Int                      @id @default(autoincrement())
   nombre                 String                   @db.VarChar(100)
   creado_en              DateTime?                @default(now()) @db.Timestamp(6)
+  ia_word                ia_word[]
   user_x_role            user_x_role[]
   usuario_avance_palabra usuario_avance_palabra[]
   word_learned           word_learned[]
@@ -86,13 +97,4 @@ model word_list {
   oracion_ejemplo        String?
   creado_en              DateTime?                @default(now()) @db.Timestamp(6)
   usuario_avance_palabra usuario_avance_palabra[]
-}
-
-model ia_word {
-  id                 Int       @id @default(autoincrement())
-  palabra            String    @db.VarChar(150)
-  pronunciacion      String?   @db.VarChar(150)
-  traduccion_espanol String    @db.VarChar(150)
-  creado_en          DateTime? @default(now()) @db.Timestamp(6)
-  usuario_id         Int
 }

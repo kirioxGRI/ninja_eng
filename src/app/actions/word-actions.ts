@@ -212,31 +212,38 @@ export async function findTooltipWordByText(texto: string): Promise<TooltipWordL
     const normalized = texto.toLowerCase().replace(/[^a-z]/g, '');
     if (!normalized) return null;
 
-    const wordListRows = await prisma.$queryRaw<TooltipWordLookup[]>`
-      select
-        palabra,
-        pronunciacion,
-        traduccion_espanol,
-        'word_list'::text as source
-      from public.word_list
-      where lower(palabra) = ${normalized}
-      limit 1
-    `;
+    const wordListRow = await prisma.word_list.findFirst({
+      where: { palabra: { equals: normalized, mode: 'insensitive' } },
+      select: {
+        palabra: true,
+        pronunciacion: true,
+        traduccion_espanol: true,
+      },
+    });
 
-    if (wordListRows.length > 0) return wordListRows[0];
+    if (wordListRow) {
+      return {
+        ...wordListRow,
+        source: 'word_list',
+      };
+    }
 
-    const iaWordRows = await prisma.$queryRaw<TooltipWordLookup[]>`
-      select
-        palabra,
-        pronunciacion,
-        traduccion_espanol,
-        'ia_word'::text as source
-      from public.ia_word
-      where lower(palabra) = ${normalized}
-      limit 1
-    `;
+    const iaWordRow = await prisma.ia_word.findFirst({
+      where: { palabra: { equals: normalized, mode: 'insensitive' } },
+      orderBy: { id: 'asc' },
+      select: {
+        palabra: true,
+        pronunciacion: true,
+        traduccion_espanol: true,
+      },
+    });
 
-    return iaWordRows[0] ?? null;
+    return iaWordRow
+      ? {
+          ...iaWordRow,
+          source: 'ia_word',
+        }
+      : null;
   } catch {
     return null;
   }
@@ -251,25 +258,25 @@ export async function saveTooltipAiWord(texto: string, traduccion: string) {
       return { error: 'Datos inválidos.' };
     }
 
-    const existingRows = await prisma.$queryRaw<Array<{ id: number }>>`
-      select id
-      from public.ia_word
-      where lower(palabra) = ${normalized}
-      order by id asc
-      limit 1
-    `;
+    const existingRow = await prisma.ia_word.findFirst({
+      where: { palabra: { equals: normalized, mode: 'insensitive' } },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
 
-    if (existingRows.length > 0) {
-      await prisma.$executeRaw`
-        update public.ia_word
-        set usuario_id = ${DEFAULT_TOOLTIP_AI_USER_ID}
-        where id = ${existingRows[0].id}
-      `;
+    if (existingRow) {
+      await prisma.ia_word.update({
+        where: { id: existingRow.id },
+        data: { usuario_id: DEFAULT_TOOLTIP_AI_USER_ID },
+      });
     } else {
-      await prisma.$executeRaw`
-        insert into public.ia_word (palabra, traduccion_espanol, usuario_id)
-        values (${normalized}, ${cleanTranslation}, ${DEFAULT_TOOLTIP_AI_USER_ID})
-      `;
+      await prisma.ia_word.create({
+        data: {
+          palabra: normalized,
+          traduccion_espanol: cleanTranslation,
+          usuario_id: DEFAULT_TOOLTIP_AI_USER_ID,
+        },
+      });
     }
 
     return { success: true };
