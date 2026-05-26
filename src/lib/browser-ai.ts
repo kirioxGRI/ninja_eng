@@ -3,6 +3,7 @@
 export const AI_UNAVAILABLE = '__AI_NO_DISPONIBLE__';
 
 interface LMSession {
+  prompt: (input: string) => Promise<string>;
   promptStreaming: (input: string) => ReadableStream<string>;
   destroy: () => void;
 }
@@ -64,6 +65,31 @@ export async function generateExampleSentence(
     return cleanText(accumulated) || AI_UNAVAILABLE;
   } catch {
     return AI_UNAVAILABLE;
+  } finally {
+    session?.destroy();
+  }
+}
+
+/**
+ * Translates an English word to Spanish using Chrome's built-in LanguageModel.
+ * Returns null if AI is unavailable or fails.
+ */
+export async function translateWord(word: string): Promise<string | null> {
+  const lm = getLanguageModel();
+  if (!lm) return null;
+
+  let session: LMSession | null = null;
+  try {
+    session = await lm.create({
+      expectedInputs:  [{ type: 'text', languages: ['en'] }],
+      expectedOutputs: [{ type: 'text', languages: ['es'] }],
+      initialPrompts:  [{ role: 'system', content: 'You translate English words to Spanish. Return only the Spanish translation(s), no explanation, no quotes, no extra text.' }],
+    });
+
+    const result = await session.prompt(`Translate to Spanish: "${word}"`);
+    return cleanText(result) || null;
+  } catch {
+    return null;
   } finally {
     session?.destroy();
   }

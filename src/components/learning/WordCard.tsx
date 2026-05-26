@@ -49,8 +49,16 @@ const handleLearn = () => {
       } else {
         const res = await markWordAsLearned(usuarioId, word.id);
         if (!res.error) {
-          setWord({ ...word, aprendida: true });
           setCurrentStats((s) => ({ ...s, aprendidas: s.aprendidas + 1 }));
+          const next = await getRandomWord(usuarioId);
+          if (next) {
+            setWord(next);
+            setGenSentence(null);
+            setAiUnavailable(false);
+            setCurrentStats((s) => ({ ...s, mostradas: s.mostradas + 1 }));
+          } else {
+            setWord({ ...word, aprendida: true });
+          }
         }
       }
     });

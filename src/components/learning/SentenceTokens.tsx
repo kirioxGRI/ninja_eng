@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { findWordByText } from '@/app/actions/word-actions';
+import {
+  findTooltipWordByText,
+  findWordByText,
+  saveTooltipAiWord,
+} from '@/app/actions/word-actions';
+import { translateWord } from '@/lib/browser-ai';
 import WordModal from './WordModal';
 
 type Props = {
@@ -26,11 +31,19 @@ export default function SentenceTokens({ sentence }: Props) {
   const handleHover = async (token: string, idx: number) => {
     const clean = token.replace(/[^a-zA-Z']/g, '');
     if (!clean) return;
-    const found = await findWordByText(clean);
-    setTooltip({
-      index: idx,
-      text: found?.traduccion_espanol ?? 'Sin traducción',
-    });
+
+    setTooltip({ index: idx, text: '…' });
+
+    const found = await findTooltipWordByText(clean);
+    if (found) {
+      setTooltip({ index: idx, text: found.traduccion_espanol });
+    } else {
+      const aiTranslation = await translateWord(clean);
+      if (aiTranslation) {
+        await saveTooltipAiWord(clean, aiTranslation);
+      }
+      setTooltip({ index: idx, text: aiTranslation ?? 'Sin traducción' });
+    }
   };
 
   const handleClick = async (token: string, idx: number) => {

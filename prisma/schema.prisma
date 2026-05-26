@@ -87,3 +87,12 @@ model word_list {
   creado_en              DateTime?                @default(now()) @db.Timestamp(6)
   usuario_avance_palabra usuario_avance_palabra[]
 }
+
+model ia_word {
+  id                 Int       @id @default(autoincrement())
+  palabra            String    @db.VarChar(150)
+  pronunciacion      String?   @db.VarChar(150)
+  traduccion_espanol String    @db.VarChar(150)
+  creado_en          DateTime? @default(now()) @db.Timestamp(6)
+  usuario_id         Int
+}

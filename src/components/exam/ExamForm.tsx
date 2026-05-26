@@ -401,15 +401,28 @@ export default function ExamForm({ usuarioId, nombreUsuario, learnedCount }: Pro
           </div>
         </div>
 
-        {/* Action Button */}
-        <button
-          id="btn-restart-exam"
-          className="btn btn-primary"
-          style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: '0.95rem' }}
-          onClick={handleReset}
-        >
-          Tomar Otro Examen
-        </button>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            id="btn-restart-exam"
+            className="btn btn-primary"
+            style={{ flex: 1, justifyContent: 'center', padding: '14px', fontSize: '0.95rem' }}
+            onClick={handleReset}
+          >
+            Tomar Otro Examen
+          </button>
+          <button
+            style={{
+              flex: 1, padding: '14px', fontSize: '0.95rem', fontWeight: 700,
+              border: '2px solid #546e7a', borderRadius: '10px',
+              background: 'transparent', color: '#546e7a',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onClick={() => window.location.href = '/dashboard/aprender'}
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
     );
   }

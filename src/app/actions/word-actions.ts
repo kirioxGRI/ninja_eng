@@ -198,6 +198,86 @@ export async function findWordByText(texto: string) {
   }
 }
 
+export type TooltipWordLookup = {
+  palabra: string;
+  pronunciacion: string | null;
+  traduccion_espanol: string;
+  source: 'word_list' | 'ia_word';
+};
+
+const DEFAULT_TOOLTIP_AI_USER_ID = 1;
+
+export async function findTooltipWordByText(texto: string): Promise<TooltipWordLookup | null> {
+  try {
+    const normalized = texto.toLowerCase().replace(/[^a-z]/g, '');
+    if (!normalized) return null;
+
+    const wordListRows = await prisma.$queryRaw<TooltipWordLookup[]>`
+      select
+        palabra,
+        pronunciacion,
+        traduccion_espanol,
+        'word_list'::text as source
+      from public.word_list
+      where lower(palabra) = ${normalized}
+      limit 1
+    `;
+
+    if (wordListRows.length > 0) return wordListRows[0];
+
+    const iaWordRows = await prisma.$queryRaw<TooltipWordLookup[]>`
+      select
+        palabra,
+        pronunciacion,
+        traduccion_espanol,
+        'ia_word'::text as source
+      from public.ia_word
+      where lower(palabra) = ${normalized}
+      limit 1
+    `;
+
+    return iaWordRows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveTooltipAiWord(texto: string, traduccion: string) {
+  try {
+    const normalized = texto.toLowerCase().replace(/[^a-z]/g, '');
+    const cleanTranslation = traduccion.trim();
+
+    if (!normalized || !cleanTranslation) {
+      return { error: 'Datos inválidos.' };
+    }
+
+    const existingRows = await prisma.$queryRaw<Array<{ id: number }>>`
+      select id
+      from public.ia_word
+      where lower(palabra) = ${normalized}
+      order by id asc
+      limit 1
+    `;
+
+    if (existingRows.length > 0) {
+      await prisma.$executeRaw`
+        update public.ia_word
+        set usuario_id = ${DEFAULT_TOOLTIP_AI_USER_ID}
+        where id = ${existingRows[0].id}
+      `;
+    } else {
+      await prisma.$executeRaw`
+        insert into public.ia_word (palabra, traduccion_espanol, usuario_id)
+        values (${normalized}, ${cleanTranslation}, ${DEFAULT_TOOLTIP_AI_USER_ID})
+      `;
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'No se pudo guardar la traducción IA.' };
+  }
+}
+
 // ─── Palabras vistas (mostrada=true, aprendida=false) ──────
 export type SeenWordItem = {
   palabraId: number;
