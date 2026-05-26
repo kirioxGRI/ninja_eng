@@ -1,0 +1,93 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+.pnpm-store/
+
+# Next.js
+/.next/
+/out/
+/build
+/dist/
+
+# production
+/.vercel/
+
+# environment variables
+.env*
+!.env.example
+
+# Prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+/prisma/migrations/*/migration_lock.toml
+/src/generated/prisma/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+/coverage
+/playwright-report/
+/test-results/
+
+# cache
+/.cache/
+/.turbo/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# local files
+*.local
+*.bak
+*.tmp
+
+# uploads / exports
+/uploads/
+/exports/
+*.csv
+*.xlsx
+*.sql
+
+# misc
+/xdata
+*.pem
+
+# Dependencias y cachés
+node_modules/
+.pnpm-store/
+
+# Archivos generados automáticamente
+pnpm-lock.yaml
+prisma/client/
+
+# Archivos de entorno
+.env
+.env.local
+
+# Archivos personales o irrelevantes
+ninja.md
+
+# Logs y datos temporales
+*.log
+*.tmp

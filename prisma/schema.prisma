@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model permiso {
+  idpermiso      Int              @id @default(autoincrement())
+  nombre         String           @unique @db.VarChar(100)
+  descripcion    String?
+  permiso_x_role permiso_x_role[]
+}
+
+model permiso_x_role {
+  id_role    Int
+  id_permiso Int
+  permiso    permiso @relation(fields: [id_permiso], references: [idpermiso], onDelete: Cascade, onUpdate: NoAction)
+  role       role    @relation(fields: [id_role], references: [idrole], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([id_role, id_permiso])
+}
+
+model role {
+  idrole         Int              @id @default(autoincrement())
+  nombre         String           @unique @db.VarChar(100)
+  descripcion    String?
+  permiso_x_role permiso_x_role[]
+  user_x_role    user_x_role[]
+}
+
+model user_x_role {
+  id_usuario  Int
+  id_role     Int
+  asignado_en DateTime? @default(now()) @db.Timestamp(6)
+  role        role      @relation(fields: [id_role], references: [idrole], onDelete: Cascade, onUpdate: NoAction)
+  usuario     usuario   @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([id_usuario, id_role])
+}
+
+model usuario {
+  id                     Int                      @id @default(autoincrement())
+  nombre                 String                   @db.VarChar(100)
+  creado_en              DateTime?                @default(now()) @db.Timestamp(6)
+  user_x_role            user_x_role[]
+  usuario_avance_palabra usuario_avance_palabra[]
+  word_learned           word_learned[]
+}
+
+model usuario_avance_palabra {
+  id              Int       @id @default(autoincrement())
+  usuario_id      Int
+  palabra_id      Int
+  mostrada        Boolean?  @default(false)
+  aprendida       Boolean?  @default(false)
+  fecha_mostrada  DateTime? @db.Timestamp(6)
+  fecha_aprendida DateTime? @db.Timestamp(6)
+  word_list       word_list @relation(fields: [palabra_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuario         usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([usuario_id, palabra_id])
+  @@index([palabra_id], map: "idx_usuario_avance_palabra")
+  @@index([usuario_id], map: "idx_usuario_avance_usuario")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model word_learned {
+  id                           Int       @id @default(autoincrement())
+  usuario_id                   Int
+  fecha_examen                 DateTime? @default(now()) @db.Timestamp(6)
+  cantidad_palabras_examinadas Int
+  cantidad_palabras_aprendidas Int
+  usuario                      usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([usuario_id], map: "idx_word_learned_usuario")
+}
+
+model word_list {
+  id                     Int                      @id @default(autoincrement())
+  palabra                String                   @unique(map: "uq_word_list_palabra") @db.VarChar(150)
+  pronunciacion          String?                  @db.VarChar(150)
+  traduccion_espanol     String                   @db.VarChar(150)
+  oracion_ejemplo        String?
+  creado_en              DateTime?                @default(now()) @db.Timestamp(6)
+  usuario_avance_palabra usuario_avance_palabra[]
+}
