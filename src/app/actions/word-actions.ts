@@ -34,9 +34,10 @@ export async function getUserStats(usuarioId: number) {
 }
 
 // ─── IDs de palabras ya aprendidas por el usuario ─────────
-async function getLearnedWordIds(usuarioId: number): Promise<number[]> {
+// Excluye palabras ya vistas O aprendidas (cualquier registro en usuario_avance_palabra)
+async function getExcludedWordIds(usuarioId: number): Promise<number[]> {
   const records = await prisma.usuario_avance_palabra.findMany({
-    where: { usuario_id: usuarioId, aprendida: true },
+    where: { usuario_id: usuarioId },
     select: { palabra_id: true },
   });
   return records.map((r) => r.palabra_id);
@@ -45,8 +46,8 @@ async function getLearnedWordIds(usuarioId: number): Promise<number[]> {
 // ─── Obtener palabra aleatoria ─────────────────────────────
 export async function getRandomWord(usuarioId: number): Promise<WordWithProgress | null> {
   try {
-    const learnedIds = await getLearnedWordIds(usuarioId);
-    const where = learnedIds.length > 0 ? { id: { notIn: learnedIds } } : {};
+    const excludedIds = await getExcludedWordIds(usuarioId);
+    const where = excludedIds.length > 0 ? { id: { notIn: excludedIds } } : {};
     const count = await prisma.word_list.count({ where });
     if (count === 0) return null;
     const skip = Math.floor(Math.random() * count);
@@ -80,9 +81,9 @@ export async function getWordById(id: number, usuarioId: number): Promise<WordWi
 // ─── Siguiente palabra ─────────────────────────────────────
 export async function getNextWord(currentId: number, usuarioId: number): Promise<WordWithProgress | null> {
   try {
-    const learnedIds = await getLearnedWordIds(usuarioId);
+    const excludedIds = await getExcludedWordIds(usuarioId);
     const where = {
-      id: { gt: currentId, ...(learnedIds.length > 0 ? { notIn: learnedIds } : {}) },
+      id: { gt: currentId, ...(excludedIds.length > 0 ? { notIn: excludedIds } : {}) },
     };
     const word = await prisma.word_list.findFirst({ where, orderBy: { id: 'asc' } });
     if (!word) return null;
@@ -99,9 +100,9 @@ export async function getNextWord(currentId: number, usuarioId: number): Promise
 // ─── Palabra anterior ──────────────────────────────────────
 export async function getPrevWord(currentId: number, usuarioId: number): Promise<WordWithProgress | null> {
   try {
-    const learnedIds = await getLearnedWordIds(usuarioId);
+    const excludedIds = await getExcludedWordIds(usuarioId);
     const where = {
-      id: { lt: currentId, ...(learnedIds.length > 0 ? { notIn: learnedIds } : {}) },
+      id: { lt: currentId, ...(excludedIds.length > 0 ? { notIn: excludedIds } : {}) },
     };
     const word = await prisma.word_list.findFirst({ where, orderBy: { id: 'desc' } });
     if (!word) return null;
@@ -194,6 +195,97 @@ export async function findWordByText(texto: string) {
     return word;
   } catch {
     return null;
+  }
+}
+
+// ─── Palabras vistas (mostrada=true, aprendida=false) ──────
+export type SeenWordItem = {
+  palabraId: number;
+  palabra: string;
+  traduccion: string;
+};
+
+export async function getSeenWords(usuarioId: number): Promise<SeenWordItem[]> {
+  try {
+    const records = await prisma.usuario_avance_palabra.findMany({
+      where: { usuario_id: usuarioId, mostrada: true, aprendida: false },
+      include: { word_list: { select: { id: true, palabra: true, traduccion_espanol: true } } },
+      orderBy: { fecha_mostrada: 'desc' },
+    });
+    return records.map((r) => ({
+      palabraId: r.word_list.id,
+      palabra: r.word_list.palabra,
+      traduccion: r.word_list.traduccion_espanol,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Elimina el registro completamente → la palabra vuelve a estar disponible
+export async function removeSeenWord(usuarioId: number, palabraId: number) {
+  try {
+    await prisma.usuario_avance_palabra.delete({
+      where: { usuario_id_palabra_id: { usuario_id: usuarioId, palabra_id: palabraId } },
+    });
+    revalidatePath('/dashboard/aprender');
+    return { success: true };
+  } catch {
+    return { error: 'Error al remover palabra vista.' };
+  }
+}
+
+export async function resetAllSeenWords(usuarioId: number) {
+  try {
+    await prisma.usuario_avance_palabra.deleteMany({
+      where: {
+        usuario_id: usuarioId,
+        mostrada: true,
+        OR: [{ aprendida: false }, { aprendida: null }],
+      },
+    });
+    revalidatePath('/dashboard/aprender');
+    return { success: true };
+  } catch {
+    return { error: 'Error al resetear palabras vistas.' };
+  }
+}
+
+// ─── Obtener palabras aprendidas del usuario ───────────────
+export type LearnedWordItem = {
+  palabraId: number;
+  palabra: string;
+  traduccion: string;
+};
+
+export async function getLearnedWords(usuarioId: number): Promise<LearnedWordItem[]> {
+  try {
+    const records = await prisma.usuario_avance_palabra.findMany({
+      where: { usuario_id: usuarioId, aprendida: true },
+      include: { word_list: { select: { id: true, palabra: true, traduccion_espanol: true } } },
+      orderBy: { fecha_aprendida: 'desc' },
+    });
+    return records.map((r) => ({
+      palabraId: r.word_list.id,
+      palabra: r.word_list.palabra,
+      traduccion: r.word_list.traduccion_espanol,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ─── Reset todas las palabras aprendidas ───────────────────
+export async function resetAllLearnedWords(usuarioId: number) {
+  try {
+    await prisma.usuario_avance_palabra.updateMany({
+      where: { usuario_id: usuarioId, aprendida: true },
+      data: { aprendida: false, fecha_aprendida: null },
+    });
+    revalidatePath('/dashboard/aprender');
+    return { success: true };
+  } catch {
+    return { error: 'Error al resetear palabras.' };
   }
 }
 

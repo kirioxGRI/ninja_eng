@@ -3,8 +3,6 @@
 import { useState, useTransition } from 'react';
 import type { WordWithProgress } from '@/app/actions/word-actions';
 import {
-  getNextWord,
-  getPrevWord,
   getRandomWord,
   markWordAsLearned,
   unmarkWordAsLearned,
@@ -12,6 +10,8 @@ import {
 import { speakWord, speakSentence } from '@/lib/speech';
 import { generateExampleSentence, AI_UNAVAILABLE } from '@/lib/browser-ai';
 import SentenceTokens from './SentenceTokens';
+import LearnedWordsModal from './LearnedWordsModal';
+import SeenWordsModal from './SeenWordsModal';
 
 type Props = {
   initialWord: WordWithProgress;
@@ -24,6 +24,8 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
   const [currentStats, setCurrentStats] = useState(stats);
   const [genSentence, setGenSentence] = useState<string | null>(null);
   const [aiUnavailable, setAiUnavailable] = useState(false);
+  const [showLearnedModal, setShowLearnedModal] = useState(false);
+  const [showSeenModal, setShowSeenModal] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -36,23 +38,7 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
     ? Math.round((currentStats.mostradas / currentStats.totalPalabras) * 100)
     : 0;
 
-  const navigate = (fn: () => Promise<WordWithProgress | null>) => {
-    startTransition(async () => {
-      const next = await fn();
-      if (next) {
-        setWord(next);
-        setGenSentence(null);
-        if (next.aprendida !== word.aprendida) {
-          setCurrentStats((s) => ({
-            ...s,
-            aprendidas: s.aprendidas + (next.aprendida ? 1 : -1),
-          }));
-        }
-      }
-    });
-  };
-
-  const handleLearn = () => {
+const handleLearn = () => {
     startTransition(async () => {
       if (word.aprendida) {
         const res = await unmarkWordAsLearned(usuarioId, word.id);
@@ -63,15 +49,21 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
       } else {
         const res = await markWordAsLearned(usuarioId, word.id);
         if (!res.error) {
+          setWord({ ...word, aprendida: true });
           setCurrentStats((s) => ({ ...s, aprendidas: s.aprendidas + 1 }));
-          const next = await getNextWord(word.id, usuarioId);
-          if (next) {
-            setWord(next);
-            setGenSentence(null);
-          } else {
-            setWord({ ...word, aprendida: true });
-          }
         }
+      }
+    });
+  };
+
+  const handleNewWord = () => {
+    startTransition(async () => {
+      const next = await getRandomWord(usuarioId);
+      if (next) {
+        setWord(next);
+        setGenSentence(null);
+        setAiUnavailable(false);
+        setCurrentStats((s) => ({ ...s, mostradas: s.mostradas + 1 }));
       }
     });
   };
@@ -120,7 +112,12 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
           </div>
         </div>
 
-        <div className="stat-card stat-card-2">
+        <div
+          className="stat-card stat-card-2"
+          onClick={() => setShowLearnedModal(true)}
+          style={{ cursor: 'pointer' }}
+          title="Ver palabras aprendidas"
+        >
           <div className="stat-card-top">
             <div>
               <div className="stat-value">{currentStats.aprendidas}</div>
@@ -143,7 +140,12 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
           </div>
         </div>
 
-        <div className="stat-card stat-card-3">
+        <div
+          className="stat-card stat-card-3"
+          onClick={() => setShowSeenModal(true)}
+          style={{ cursor: 'pointer' }}
+          title="Ver palabras vistas"
+        >
           <div className="stat-card-top">
             <div>
               <div className="stat-value">{currentStats.mostradas}</div>
@@ -306,35 +308,40 @@ export default function WordCard({ initialWord, usuarioId, stats }: Props) {
             </button>
 
             <button
-              id="btn-prev-word"
-              className="btn btn-ghost btn-sm"
-              onClick={() => navigate(() => getPrevWord(word.id, usuarioId))}
+              id="btn-new-word"
+              className={`btn btn-sm ${word.aprendida ? 'btn-success' : 'btn-danger'}`}
+              onClick={handleNewWord}
               disabled={isPending}
             >
-              ← Anterior
-            </button>
-
-            <button
-              id="btn-random-word"
-              className="btn btn-ghost btn-sm"
-              onClick={() => navigate(() => getRandomWord(usuarioId))}
-              disabled={isPending}
-            >
-              🎲 Aleatoria
-            </button>
-
-            <button
-              id="btn-next-word"
-              className="btn btn-primary btn-sm"
-              onClick={() => navigate(() => getNextWord(word.id, usuarioId))}
-              disabled={isPending}
-            >
-              Siguiente →
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+              Nueva palabra
             </button>
           </div>
         </div>
 
       </div>
+
+      {showLearnedModal && (
+        <LearnedWordsModal
+          usuarioId={usuarioId}
+          onClose={() => setShowLearnedModal(false)}
+          onStatsChange={(newCount) =>
+            setCurrentStats((s) => ({ ...s, aprendidas: newCount }))
+          }
+        />
+      )}
+
+      {showSeenModal && (
+        <SeenWordsModal
+          usuarioId={usuarioId}
+          onClose={() => setShowSeenModal(false)}
+          onStatsChange={(newSeenNotLearned) =>
+            setCurrentStats((s) => ({ ...s, mostradas: newSeenNotLearned + s.aprendidas }))
+          }
+        />
+      )}
     </div>
   );
 }
