@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const navItems = [
   {
@@ -49,50 +50,72 @@ type SidebarProps = {
 
 export default function Sidebar({ userName }: SidebarProps) {
   const pathname = usePathname();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const initials = userName
     ? userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U';
 
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      setIsMobileOpen(false);
+    });
+  }, [pathname]);
+
   return (
-    <aside className="sidebar">
-      {/* Logo */}
-      <div className="sidebar-logo">
-        <div className="logo-icon">🥷</div>
-        <div className="sidebar-brand-text">
-          <h1>NinjaEng</h1>
-          <p>English Vocabulary</p>
-        </div>
-      </div>
+    <div className={`sidebar-shell ${isMobileOpen ? 'is-mobile-open' : ''}`}>
+      <div className="desktop-sidebar-trigger" aria-hidden="true" />
 
-      {/* Nav */}
-      <nav className="sidebar-nav">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={isActive ? 'active' : ''}
-              id={`nav-${item.label.toLowerCase().replace(/ /g, '-')}`}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <button
+        type="button"
+        className="mobile-sidebar-toggle"
+        aria-label={isMobileOpen ? 'Cerrar menú lateral' : 'Abrir menú lateral'}
+        aria-expanded={isMobileOpen}
+        onClick={() => setIsMobileOpen((value) => !value)}
+      >
+        {isMobileOpen ? '✕' : '☰'}
+      </button>
 
-      {/* User */}
-      <div className="sidebar-footer">
-        <div className="user-chip">
-          <div className="user-avatar">{initials}</div>
-          <div className="user-info sidebar-user-text">
-            <div className="user-name">{userName || 'Usuario'}</div>
-            <div className="user-role">Estudiante</div>
+      <aside className="sidebar">
+        {/* Logo */}
+        <div className="sidebar-logo">
+          <div className="logo-icon">🥷</div>
+          <div className="sidebar-brand-text">
+            <h1>NinjaEng</h1>
+            <p>English Vocabulary</p>
           </div>
         </div>
-      </div>
-    </aside>
+
+        {/* Nav */}
+        <nav className="sidebar-nav">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={isActive ? 'active' : ''}
+                id={`nav-${item.label.toLowerCase().replace(/ /g, '-')}`}
+                onClick={() => setIsMobileOpen(false)}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-label">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User */}
+        <div className="sidebar-footer">
+          <div className="user-chip">
+            <div className="user-avatar">{initials}</div>
+            <div className="user-info sidebar-user-text">
+              <div className="user-name">{userName || 'Usuario'}</div>
+              <div className="user-role">Estudiante</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
   );
 }

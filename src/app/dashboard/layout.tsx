@@ -16,10 +16,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="app-layout">
-      <div className="sidebar-shell">
-        <div className="sidebar-hover-trigger" aria-hidden="true" />
-        <Sidebar userName={user?.nombre} />
-      </div>
+      <Sidebar userName={user?.nombre} />
       <div className="main-content">
         {children}
       </div>
