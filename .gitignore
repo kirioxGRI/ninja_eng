@@ -91,3 +91,5 @@ ninja.md
 # Logs y datos temporales
 *.log
 *.tmp
+
+env.txt

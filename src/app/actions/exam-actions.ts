@@ -4,6 +4,15 @@
 import { prisma } from '@/lib/prisma';
 import { checkTranslation } from '@/lib/normalize';
 import { revalidatePath } from 'next/cache';
+import { getActiveUser } from './user-actions';
+
+async function verifyAuth(usuarioId: number) {
+  const activeUser = await getActiveUser();
+  if (!activeUser || activeUser.id !== usuarioId) {
+    throw new Error('No autorizado');
+  }
+}
+
 
 export type ExamWord = {
   id: number;
@@ -31,6 +40,7 @@ export async function getLearnedWordsCount(
   usuarioId: number
 ): Promise<number> {
   try {
+    await verifyAuth(usuarioId);
     return await prisma.usuario_avance_palabra.count({
       where: { usuario_id: usuarioId, aprendida: true },
     });
@@ -48,6 +58,7 @@ export async function getRandomWordsForExam(
   count: number
 ): Promise<{ success: boolean; words: ExamWord[]; error?: string }> {
   try {
+    await verifyAuth(usuarioId);
     const learnedRecords = await prisma.usuario_avance_palabra.findMany({
       where: { usuario_id: usuarioId, aprendida: true },
       include: { word_list: true },
@@ -89,6 +100,7 @@ export async function submitExamResult(
   submissions: { wordId: number; answer: string }[]
 ): Promise<ExamSubmissionResult> {
   try {
+    await verifyAuth(usuarioId);
     if (!submissions || submissions.length === 0) {
       return { success: false, totalQuestions: 0, correctCount: 0, detailedResults: [], error: 'No se enviaron respuestas.' };
     }

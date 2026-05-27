@@ -10,8 +10,11 @@ import {
 import { speakWord, speakSentence } from '@/lib/speech';
 import { generateExampleSentence, AI_UNAVAILABLE } from '@/lib/browser-ai';
 import SentenceTokens from './SentenceTokens';
-import LearnedWordsModal from './LearnedWordsModal';
-import SeenWordsModal from './SeenWordsModal';
+import dynamic from 'next/dynamic';
+
+const LearnedWordsModal = dynamic(() => import('./LearnedWordsModal'));
+const SeenWordsModal = dynamic(() => import('./SeenWordsModal'));
+
 
 type Props = {
   initialWord: WordWithProgress;
@@ -93,7 +96,7 @@ const handleLearn = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="learning-layout">
 
       {/* ─── Stats Cards ──────────────────────────────── */}
       <div className="stats-grid">

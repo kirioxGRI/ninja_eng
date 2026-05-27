@@ -2,6 +2,14 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getActiveUser } from './user-actions';
+
+async function verifyAuth(usuarioId: number) {
+  const activeUser = await getActiveUser();
+  if (!activeUser || activeUser.id !== usuarioId) {
+    throw new Error('No autorizado');
+  }
+}
 
 // ─── Tipos ────────────────────────────────────────────────
 export type WordWithProgress = {
@@ -18,6 +26,7 @@ export type WordWithProgress = {
 // ─── Obtener stats del usuario ─────────────────────────────
 export async function getUserStats(usuarioId: number) {
   try {
+    await verifyAuth(usuarioId);
     const [totalPalabras, aprendidas, mostradas] = await Promise.all([
       prisma.word_list.count(),
       prisma.usuario_avance_palabra.count({
@@ -46,6 +55,7 @@ async function getExcludedWordIds(usuarioId: number): Promise<number[]> {
 // ─── Obtener palabra aleatoria ─────────────────────────────
 export async function getRandomWord(usuarioId: number): Promise<WordWithProgress | null> {
   try {
+    await verifyAuth(usuarioId);
     const excludedIds = await getExcludedWordIds(usuarioId);
     const where = excludedIds.length > 0 ? { id: { notIn: excludedIds } } : {};
     const count = await prisma.word_list.count({ where });
@@ -66,6 +76,7 @@ export async function getRandomWord(usuarioId: number): Promise<WordWithProgress
 // ─── Obtener palabra por ID ────────────────────────────────
 export async function getWordById(id: number, usuarioId: number): Promise<WordWithProgress | null> {
   try {
+    await verifyAuth(usuarioId);
     const word = await prisma.word_list.findUnique({ where: { id } });
     if (!word) return null;
     await markWordAsShown(usuarioId, word.id);
@@ -81,6 +92,7 @@ export async function getWordById(id: number, usuarioId: number): Promise<WordWi
 // ─── Siguiente palabra ─────────────────────────────────────
 export async function getNextWord(currentId: number, usuarioId: number): Promise<WordWithProgress | null> {
   try {
+    await verifyAuth(usuarioId);
     const excludedIds = await getExcludedWordIds(usuarioId);
     const where = {
       id: { gt: currentId, ...(excludedIds.length > 0 ? { notIn: excludedIds } : {}) },
@@ -100,6 +112,7 @@ export async function getNextWord(currentId: number, usuarioId: number): Promise
 // ─── Palabra anterior ──────────────────────────────────────
 export async function getPrevWord(currentId: number, usuarioId: number): Promise<WordWithProgress | null> {
   try {
+    await verifyAuth(usuarioId);
     const excludedIds = await getExcludedWordIds(usuarioId);
     const where = {
       id: { lt: currentId, ...(excludedIds.length > 0 ? { notIn: excludedIds } : {}) },
@@ -140,6 +153,7 @@ async function markWordAsShown(usuarioId: number, palabraId: number) {
 // ─── Marcar como aprendida ─────────────────────────────────
 export async function markWordAsLearned(usuarioId: number, palabraId: number) {
   try {
+    await verifyAuth(usuarioId);
     await prisma.usuario_avance_palabra.upsert({
       where: { usuario_id_palabra_id: { usuario_id: usuarioId, palabra_id: palabraId } },
       create: {
@@ -165,6 +179,7 @@ export async function markWordAsLearned(usuarioId: number, palabraId: number) {
 // ─── Desmarcar aprendida ───────────────────────────────────
 export async function unmarkWordAsLearned(usuarioId: number, palabraId: number) {
   try {
+    await verifyAuth(usuarioId);
     await prisma.usuario_avance_palabra.upsert({
       where: { usuario_id_palabra_id: { usuario_id: usuarioId, palabra_id: palabraId } },
       create: {
@@ -294,6 +309,7 @@ export type SeenWordItem = {
 
 export async function getSeenWords(usuarioId: number): Promise<SeenWordItem[]> {
   try {
+    await verifyAuth(usuarioId);
     const records = await prisma.usuario_avance_palabra.findMany({
       where: { usuario_id: usuarioId, mostrada: true, aprendida: false },
       include: { word_list: { select: { id: true, palabra: true, traduccion_espanol: true } } },
@@ -312,6 +328,7 @@ export async function getSeenWords(usuarioId: number): Promise<SeenWordItem[]> {
 // Elimina el registro completamente → la palabra vuelve a estar disponible
 export async function removeSeenWord(usuarioId: number, palabraId: number) {
   try {
+    await verifyAuth(usuarioId);
     await prisma.usuario_avance_palabra.delete({
       where: { usuario_id_palabra_id: { usuario_id: usuarioId, palabra_id: palabraId } },
     });
@@ -324,6 +341,7 @@ export async function removeSeenWord(usuarioId: number, palabraId: number) {
 
 export async function resetAllSeenWords(usuarioId: number) {
   try {
+    await verifyAuth(usuarioId);
     await prisma.usuario_avance_palabra.deleteMany({
       where: {
         usuario_id: usuarioId,
@@ -347,6 +365,7 @@ export type LearnedWordItem = {
 
 export async function getLearnedWords(usuarioId: number): Promise<LearnedWordItem[]> {
   try {
+    await verifyAuth(usuarioId);
     const records = await prisma.usuario_avance_palabra.findMany({
       where: { usuario_id: usuarioId, aprendida: true },
       include: { word_list: { select: { id: true, palabra: true, traduccion_espanol: true } } },
@@ -365,6 +384,7 @@ export async function getLearnedWords(usuarioId: number): Promise<LearnedWordIte
 // ─── Reset todas las palabras aprendidas ───────────────────
 export async function resetAllLearnedWords(usuarioId: number) {
   try {
+    await verifyAuth(usuarioId);
     await prisma.usuario_avance_palabra.updateMany({
       where: { usuario_id: usuarioId, aprendida: true },
       data: { aprendida: false, fecha_aprendida: null },
