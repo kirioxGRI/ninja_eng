@@ -7,7 +7,7 @@ import styles from "./login.module.css";
 export default async function LoginPage() {
   const session = await auth();
 
-  if (session) {
+  if (session?.user?.email) {
     redirect("/dashboard");
   }
 
