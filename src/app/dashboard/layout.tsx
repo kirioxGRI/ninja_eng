@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { getActiveUser } from '@/app/actions/user-actions';
+import { redirect } from 'next/navigation';
+
+import { auth } from '@/auth';
 import Sidebar from '@/components/layout/Sidebar';
 
 export const metadata: Metadata = {
@@ -12,11 +14,15 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getActiveUser();
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    redirect('/login');
+  }
 
   return (
     <div className="app-layout">
-      <Sidebar userName={user?.nombre} />
+      <Sidebar userName={session.user.name ?? session.user.email} />
       <div className="main-content">
         {children}
       </div>

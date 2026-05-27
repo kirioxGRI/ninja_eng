@@ -1,6 +1,5 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -55,6 +54,7 @@ model usuario {
   id                     Int                      @id @default(autoincrement())
   nombre                 String                   @db.VarChar(100)
   creado_en              DateTime?                @default(now()) @db.Timestamp(6)
+  email                  String?                  @unique
   ia_word                ia_word[]
   user_x_role            user_x_role[]
   usuario_avance_palabra usuario_avance_palabra[]
