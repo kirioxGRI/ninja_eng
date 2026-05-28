@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import DictationGame from './DictationGame';
 import WritingWordGame from './WritingWordGame';
+import SpeakingGame from './SpeakingGame';
 
 type GameId = 'writing-word' | 'writing-sentences' | 'dictation';
 
@@ -31,10 +32,10 @@ const games: {
   {
     id: 'writing-sentences',
     title: 'Speaking',
-    description: 'Escribe oraciones completas en inglés a partir de una pista en español.',
+    description: 'Escucha una palabra en inglés y pronúnciala correctamente. El navegador validará tu pronunciación.',
     color: '#00695c',
     bg: 'linear-gradient(135deg, #00695c 0%, #004d40 100%)',
-    available: false,
+    available: true,
     icon: (
       <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -65,6 +66,10 @@ export default function GamePageContent() {
 
   if (activeGame === 'writing-word') {
     return <WritingWordGame onExit={() => setActiveGame(null)} />;
+  }
+
+  if (activeGame === 'writing-sentences') {
+    return <SpeakingGame onExit={() => setActiveGame(null)} />;
   }
 
   return (
