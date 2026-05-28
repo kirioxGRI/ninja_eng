@@ -2,21 +2,10 @@
 
 import { prisma } from '@/lib/prisma';
 import { cache } from 'react';
+import { getAuthenticatedUser } from '@/lib/authenticated-user';
+import { normalizeEmail } from '@/lib/email';
 
-export const getActiveUser = cache(async () => {
-  try {
-    const user = await prisma.usuario.findFirst({
-      orderBy: { id: 'asc' },
-    });
-    return user;
-  } catch {
-    return null;
-  }
-});
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
+export const getUserForCurrentSession = cache(async () => getAuthenticatedUser());
 
 export async function createUser(nombre: string, email: string) {
   if (!nombre || nombre.trim().length === 0) {
@@ -28,6 +17,11 @@ export async function createUser(nombre: string, email: string) {
   }
 
   const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail) {
+    return { error: 'Ingresa un correo válido.' };
+  }
+
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
 
   if (!isValidEmail) {

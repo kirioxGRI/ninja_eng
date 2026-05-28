@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { auth } from '@/auth';
-import { getActiveUser } from '@/app/actions/user-actions';
+import { getUserForCurrentSession } from '@/app/actions/user-actions';
 import { getRandomWord, getUserStats } from '@/app/actions/word-actions';
 import WordCard from '@/components/learning/WordCard';
-import CreateUserPrompt from '@/components/learning/CreateUserPrompt';
 import TopbarUserMenu from '@/components/layout/TopbarUserMenu';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Aprender – NinjaEng',
@@ -13,22 +13,10 @@ export const metadata: Metadata = {
 
 export default async function AprenderPage() {
   const session = await auth();
-  const user = await getActiveUser();
+  const user = await getUserForCurrentSession();
 
   if (!user) {
-    return (
-      <>
-        <div className="topbar">
-          <div className="topbar-title">
-            <h2>Aprender palabras</h2>
-            <p>Primero crea tu perfil de usuario</p>
-          </div>
-        </div>
-        <div className="page-content">
-          <CreateUserPrompt />
-        </div>
-      </>
-    );
+    redirect('/login');
   }
 
   const [word, stats] = await Promise.all([

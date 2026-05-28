@@ -2,13 +2,16 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { getActiveUser } from './user-actions';
+import { requireAuthenticatedUser } from '@/lib/authenticated-user';
 
 async function verifyAuth(usuarioId: number) {
-  const activeUser = await getActiveUser();
-  if (!activeUser || activeUser.id !== usuarioId) {
+  const authenticatedUser = await requireAuthenticatedUser();
+
+  if (authenticatedUser.id !== usuarioId) {
     throw new Error('No autorizado');
   }
+
+  return authenticatedUser;
 }
 
 // ─── Tipos ────────────────────────────────────────────────
@@ -220,10 +223,9 @@ export type TooltipWordLookup = {
   source: 'word_list' | 'ia_word';
 };
 
-const DEFAULT_TOOLTIP_AI_USER_ID = 1;
-
 export async function findTooltipWordByText(texto: string): Promise<TooltipWordLookup | null> {
   try {
+    const authenticatedUser = await requireAuthenticatedUser();
     const normalized = texto.toLowerCase().replace(/[^a-z]/g, '');
     if (!normalized) return null;
 
@@ -244,7 +246,10 @@ export async function findTooltipWordByText(texto: string): Promise<TooltipWordL
     }
 
     const iaWordRow = await prisma.ia_word.findFirst({
-      where: { palabra: { equals: normalized, mode: 'insensitive' } },
+      where: {
+        palabra: { equals: normalized, mode: 'insensitive' },
+        usuario_id: authenticatedUser.id,
+      },
       orderBy: { id: 'asc' },
       select: {
         palabra: true,
@@ -266,6 +271,7 @@ export async function findTooltipWordByText(texto: string): Promise<TooltipWordL
 
 export async function saveTooltipAiWord(texto: string, traduccion: string) {
   try {
+    const authenticatedUser = await requireAuthenticatedUser();
     const normalized = texto.toLowerCase().replace(/[^a-z]/g, '');
     const cleanTranslation = traduccion.trim();
 
@@ -282,14 +288,14 @@ export async function saveTooltipAiWord(texto: string, traduccion: string) {
     if (existingRow) {
       await prisma.ia_word.update({
         where: { id: existingRow.id },
-        data: { usuario_id: DEFAULT_TOOLTIP_AI_USER_ID },
+        data: { usuario_id: authenticatedUser.id },
       });
     } else {
       await prisma.ia_word.create({
         data: {
           palabra: normalized,
           traduccion_espanol: cleanTranslation,
-          usuario_id: DEFAULT_TOOLTIP_AI_USER_ID,
+          usuario_id: authenticatedUser.id,
         },
       });
     }

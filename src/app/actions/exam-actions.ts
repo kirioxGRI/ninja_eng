@@ -4,13 +4,16 @@
 import { prisma } from '@/lib/prisma';
 import { checkTranslation } from '@/lib/normalize';
 import { revalidatePath } from 'next/cache';
-import { getActiveUser } from './user-actions';
+import { requireAuthenticatedUser } from '@/lib/authenticated-user';
 
 async function verifyAuth(usuarioId: number) {
-  const activeUser = await getActiveUser();
-  if (!activeUser || activeUser.id !== usuarioId) {
+  const authenticatedUser = await requireAuthenticatedUser();
+
+  if (authenticatedUser.id !== usuarioId) {
     throw new Error('No autorizado');
   }
+
+  return authenticatedUser;
 }
 
 

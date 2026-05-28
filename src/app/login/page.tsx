@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
 
 import { auth, signIn } from "@/auth";
+import { getUserForCurrentSession } from "@/app/actions/user-actions";
 
 import styles from "./login.module.css";
 
 export default async function LoginPage() {
   const session = await auth();
+  const user = await getUserForCurrentSession();
 
-  if (session?.user?.email) {
+  if (session?.user?.email && user) {
     redirect("/dashboard/aprender");
   }
 

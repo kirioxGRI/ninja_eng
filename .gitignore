@@ -68,6 +68,7 @@ Thumbs.db
 *.csv
 *.xlsx
 *.sql
+!scripts/migrations/*.sql
 
 # misc
 /xdata

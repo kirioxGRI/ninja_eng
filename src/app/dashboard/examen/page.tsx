@@ -1,9 +1,9 @@
 // src/app/dashboard/examen/page.tsx
 import type { Metadata } from 'next';
-import { getActiveUser } from '@/app/actions/user-actions';
+import { getUserForCurrentSession } from '@/app/actions/user-actions';
 import { getLearnedWordsCount } from '@/app/actions/exam-actions';
-import CreateUserPrompt from '@/components/learning/CreateUserPrompt';
 import ExamForm from '@/components/exam/ExamForm';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Examen – NinjaEng',
@@ -11,22 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ExamenPage() {
-  const user = await getActiveUser();
+  const user = await getUserForCurrentSession();
 
   if (!user) {
-    return (
-      <>
-        <div className="topbar">
-          <div className="topbar-title">
-            <h2>Tomar examen</h2>
-            <p>Primero crea tu perfil de usuario</p>
-          </div>
-        </div>
-        <div className="page-content">
-          <CreateUserPrompt />
-        </div>
-      </>
-    );
+    redirect('/login');
   }
 
   const learnedCount = await getLearnedWordsCount(user.id);
