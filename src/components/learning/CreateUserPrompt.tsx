@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 export default function CreateUserPrompt() {
   const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -13,9 +14,10 @@ export default function CreateUserPrompt() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) { setError('Ingresa tu nombre.'); return; }
+    if (!email.trim()) { setError('Ingresa tu correo.'); return; }
     setLoading(true);
     setError('');
-    const result = await createUser(nombre);
+    const result = await createUser(nombre, email);
     if (result.error) {
       setError(result.error);
       setLoading(false);
@@ -33,7 +35,7 @@ export default function CreateUserPrompt() {
       }}>🥷</div>
       <h2>¡Bienvenido a NinjaEng!</h2>
       <p>
-        Para comenzar a aprender inglés, necesitamos saber tu nombre.
+        Para comenzar a aprender inglés, necesitamos tu nombre y tu correo.
         Así podremos guardar tu progreso.
       </p>
       <div className="create-user-form">
@@ -47,6 +49,15 @@ export default function CreateUserPrompt() {
             onChange={(e) => setNombre(e.target.value)}
             disabled={loading}
             autoFocus
+          />
+          <input
+            id="input-user-email"
+            className="form-input"
+            type="email"
+            placeholder="Tu correo (ej: correo@dominio.com)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
           />
           {error && (
             <p style={{

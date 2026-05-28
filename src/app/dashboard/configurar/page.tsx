@@ -65,20 +65,23 @@ function AddWordCard() {
 // ─── Create User Card ───────────────────────────────────────
 function CreateUserCard() {
   const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) { setMsg({ type: 'err', text: 'El nombre es obligatorio.' }); return; }
+    if (!email.trim()) { setMsg({ type: 'err', text: 'El correo es obligatorio.' }); return; }
     setLoading(true);
     setMsg(null);
-    const result = await createUser(nombre);
+    const result = await createUser(nombre, email);
     if (result.error) {
       setMsg({ type: 'err', text: result.error });
     } else {
       setMsg({ type: 'ok', text: `✓ Usuario "${result.user?.nombre}" creado.` });
       setNombre('');
+      setEmail('');
     }
     setLoading(false);
   };
@@ -90,6 +93,9 @@ function CreateUserCard() {
         <input id="input-config-user-name" className="form-input" style={{ marginBottom: 0 }}
           placeholder="Nombre del usuario *" value={nombre}
           onChange={(e) => setNombre(e.target.value)} disabled={loading} />
+        <input id="input-config-user-email" className="form-input" style={{ marginBottom: 0 }}
+          type="email" placeholder="Correo del usuario *" value={email}
+          onChange={(e) => setEmail(e.target.value)} disabled={loading} />
         {msg && (
           <p style={{
             fontSize: '0.82rem', padding: '8px 12px', borderRadius: 8,
