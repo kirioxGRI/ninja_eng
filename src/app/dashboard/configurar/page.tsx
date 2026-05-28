@@ -9,8 +9,8 @@ export default async function ConfigurarPage() {
   const user = await getUserForCurrentSession();
   const userEmail = user?.email?.trim().toLowerCase();
 
-  if (userEmail !== ALLOWED_EMAIL) {
-    redirect('/dashboard/aprender');
+  if (userEmail !== ALLOWED_EMAIL || !user) {
+    redirect('/dashboard/reading');
   }
 
   return <ConfigurarPageContent />;

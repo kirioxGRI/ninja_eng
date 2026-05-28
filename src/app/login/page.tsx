@@ -9,8 +9,8 @@ export default async function LoginPage() {
   const session = await auth();
   const user = await getUserForCurrentSession();
 
-  if (session?.user?.email && user) {
-    redirect("/dashboard/aprender");
+  if (session?.user) {
+    redirect("/dashboard/reading");
   }
 
   return (
@@ -23,7 +23,7 @@ export default async function LoginPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/dashboard/aprender" });
+            await signIn("google", { redirectTo: "/dashboard/reading" });
           }}
         >
           <button className={styles.button} type="submit">

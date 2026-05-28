@@ -172,7 +172,7 @@ export async function markWordAsLearned(usuarioId: number, palabraId: number) {
         fecha_aprendida: new Date(),
       },
     });
-    revalidatePath('/dashboard/aprender');
+    revalidatePath('/dashboard/reading');
     return { success: true };
   } catch {
     return { error: 'Error al marcar como aprendida.' };
@@ -196,7 +196,7 @@ export async function unmarkWordAsLearned(usuarioId: number, palabraId: number) 
         fecha_aprendida: null,
       },
     });
-    revalidatePath('/dashboard/aprender');
+    revalidatePath('/dashboard/reading');
     return { success: true };
   } catch {
     return { error: 'Error al desmarcar.' };
@@ -338,7 +338,7 @@ export async function removeSeenWord(usuarioId: number, palabraId: number) {
     await prisma.usuario_avance_palabra.delete({
       where: { usuario_id_palabra_id: { usuario_id: usuarioId, palabra_id: palabraId } },
     });
-    revalidatePath('/dashboard/aprender');
+    revalidatePath('/dashboard/reading');
     return { success: true };
   } catch {
     return { error: 'Error al remover palabra vista.' };
@@ -355,7 +355,7 @@ export async function resetAllSeenWords(usuarioId: number) {
         OR: [{ aprendida: false }, { aprendida: null }],
       },
     });
-    revalidatePath('/dashboard/aprender');
+    revalidatePath('/dashboard/reading');
     return { success: true };
   } catch {
     return { error: 'Error al resetear palabras vistas.' };
@@ -395,7 +395,7 @@ export async function resetAllLearnedWords(usuarioId: number) {
       where: { usuario_id: usuarioId, aprendida: true },
       data: { aprendida: false, fecha_aprendida: null },
     });
-    revalidatePath('/dashboard/aprender');
+    revalidatePath('/dashboard/reading');
     return { success: true };
   } catch {
     return { error: 'Error al resetear palabras.' };

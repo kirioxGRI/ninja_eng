@@ -138,7 +138,7 @@ export default function ExamForm({ usuarioId, nombreUsuario, learnedCount }: Pro
             </span>
           ) : (
             <span style={{ color: '#c62828', fontSize: '0.88rem', fontWeight: 600 }}>
-              ⚠️ Aún no tienes palabras aprendidas. Ve a <strong>Aprender</strong> y marca algunas palabras primero.
+              ⚠️ Aún no tienes palabras aprendidas. Ve a <strong>Reading</strong> y marca algunas palabras primero.
             </span>
           )}
         </div>
@@ -418,7 +418,7 @@ export default function ExamForm({ usuarioId, nombreUsuario, learnedCount }: Pro
               background: 'transparent', color: '#546e7a',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            onClick={() => window.location.href = '/dashboard/aprender'}
+            onClick={() => window.location.href = '/dashboard/reading'}
           >
             Cerrar
           </button>

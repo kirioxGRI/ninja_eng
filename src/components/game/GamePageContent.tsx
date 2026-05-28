@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import DictationGame from './DictationGame';
+import WritingWordGame from './WritingWordGame';
 
-type GameId = 'writing-word' | 'writing-sentences' | 'word-completion' | 'dictation';
+type GameId = 'writing-word' | 'writing-sentences' | 'dictation';
 
 const games: {
   id: GameId;
@@ -16,11 +17,11 @@ const games: {
 }[] = [
   {
     id: 'writing-word',
-    title: 'Writing Word',
-    description: 'Se te muestra la traducción en español y debes escribir la palabra correcta en inglés.',
+    title: 'Writing',
+    description: 'Juego de mecanografía. Escribe las palabras y oraciones en inglés que caen antes de que toquen el fondo.',
     color: '#1565c0',
     bg: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
-    available: false,
+    available: true,
     icon: (
       <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -29,7 +30,7 @@ const games: {
   },
   {
     id: 'writing-sentences',
-    title: 'Writing Sentences',
+    title: 'Speaking',
     description: 'Escribe oraciones completas en inglés a partir de una pista en español.',
     color: '#00695c',
     bg: 'linear-gradient(135deg, #00695c 0%, #004d40 100%)',
@@ -41,22 +42,9 @@ const games: {
     ),
   },
   {
-    id: 'word-completion',
-    title: 'Word Completion',
-    description: 'Completa la palabra en inglés a partir de las letras iniciales o un hueco en blanco.',
-    color: '#6a1b9a',
-    bg: 'linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)',
-    available: false,
-    icon: (
-      <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h8m-8 6h16" />
-      </svg>
-    ),
-  },
-  {
     id: 'dictation',
-    title: 'Dictation',
-    description: 'Escucha la pronunciación de una palabra y escríbela correctamente antes de que se acabe el tiempo.',
+    title: 'Listening',
+    description: 'Escucha la pronunciación de una palabra u oración y escríbela correctamente antes de que se acabe el tiempo.',
     color: '#bf360c',
     bg: 'linear-gradient(135deg, #bf360c 0%, #870000 100%)',
     available: true,
@@ -75,6 +63,10 @@ export default function GamePageContent() {
     return <DictationGame onExit={() => setActiveGame(null)} />;
   }
 
+  if (activeGame === 'writing-word') {
+    return <WritingWordGame onExit={() => setActiveGame(null)} />;
+  }
+
   return (
     <>
       <div className="topbar">
@@ -86,16 +78,20 @@ export default function GamePageContent() {
 
       <div className="page-content">
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
           gap: '20px',
           maxWidth: '900px',
+          margin: '0 auto',
         }}>
           {games.map((game) => (
             <div
               key={game.id}
               onClick={() => game.available && setActiveGame(game.id)}
               style={{
+                flex: '1 1 260px',
+                maxWidth: '350px',
                 background: '#fff',
                 borderRadius: '18px',
                 boxShadow: game.available

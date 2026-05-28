@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getWordForDictation } from '@/app/actions/game-actions';
+import { getWordForDictation, getSentenceForDictation } from '@/app/actions/game-actions';
 
 type Phase = 'idle' | 'loading' | 'speaking' | 'answering' | 'result';
 
-const TIMER_SECONDS = 10;
+const TIMER_SECONDS_WORD = 10;
+const TIMER_SECONDS_SENTENCES = 30;
 const POINTS_CORRECT = 10;
 const POINTS_INCORRECT = 5;
 
@@ -75,9 +76,10 @@ type Props = { onExit: () => void };
 
 export default function DictationGame({ onExit }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
+  const [mode, setMode] = useState<'word' | 'sentences'>('word');
   const [answer, setAnswer] = useState('');
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS_WORD);
   const [round, setRound] = useState(0);
   const [lastResult, setLastResult] = useState<{
     correct: boolean;
@@ -113,32 +115,62 @@ export default function DictationGame({ onExit }: Props) {
 
   function resolveAnswer(timedOut: boolean) {
     const userAnswer = answerRef.current.trim();
-    const correct = userAnswer.toLowerCase() === wordRef.current.toLowerCase() && !timedOut;
+    
+    // Normalize string to ignore punctuation, multiple spaces, and case
+    const normalize = (str: string) => {
+      return str
+        .toLowerCase()
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?¿¡]/g, '') // remove common punctuation
+        .replace(/\s+/g, ' ') // normalize spaces
+        .trim();
+    };
+
+    const correct = normalize(userAnswer) === normalize(wordRef.current) && !timedOut;
     setPhase('result');
     setLastResult({ correct, word: wordRef.current, userAnswer, timedOut });
     setScore((s) => correct ? s + POINTS_CORRECT : Math.max(0, s - POINTS_INCORRECT));
   }
 
-  async function startNewWord() {
+  async function startNextRound(selectedMode: 'word' | 'sentences') {
     setPhase('loading');
     setAnswer('');
     answerRef.current = '';
     setLastResult(null);
 
-    const fetched = await getWordForDictation();
-    if (!fetched) {
-      setPhase('idle');
-      return;
+    let textToSpeak = '';
+    if (selectedMode === 'word') {
+      const fetched = await getWordForDictation();
+      if (!fetched) {
+        setPhase('idle');
+        return;
+      }
+      textToSpeak = fetched.palabra;
+    } else {
+      const fetched = await getSentenceForDictation();
+      if (!fetched) {
+        alert("No se encontraron oraciones de ejemplo en tu lista de palabras. Agrega algunas oraciones primero en Configurar.");
+        setPhase('idle');
+        return;
+      }
+      textToSpeak = fetched.oracion;
     }
 
-    wordRef.current = fetched.palabra;
+    wordRef.current = textToSpeak;
     setRound((r) => r + 1);
     setPhase('speaking');
 
-    await speakWordTwice(fetched.palabra);
+    await speakWordTwice(textToSpeak);
 
-    setTimeLeft(TIMER_SECONDS);
+    const timeLimit = selectedMode === 'word' ? TIMER_SECONDS_WORD : TIMER_SECONDS_SENTENCES;
+    setTimeLeft(timeLimit);
     setPhase('answering');
+  }
+
+  async function startGame(selectedMode: 'word' | 'sentences') {
+    setMode(selectedMode);
+    setRound(0);
+    setScore(0);
+    await startNextRound(selectedMode);
   }
 
   function handleSubmit(e?: React.FormEvent) {
@@ -161,11 +193,11 @@ export default function DictationGame({ onExit }: Props) {
         <div style={{ textAlign: 'center', maxWidth: 440 }}>
           <div style={{ fontSize: '4.5rem', marginBottom: 16 }}>🎧</div>
           <h2 style={{ fontSize: '1.9rem', fontWeight: 900, color: '#0d47a1', marginBottom: 10 }}>
-            Dictation
+            Word Dictation
           </h2>
           <p style={{ color: '#546e7a', fontSize: '0.92rem', lineHeight: 1.75, marginBottom: 10 }}>
-            Escucharás una palabra en inglés <strong>dos veces</strong>.<br />
-            Escríbela correctamente antes de que se acaben los <strong>10 segundos</strong>.
+            Escucharás una palabra u oración en inglés <strong>dos veces</strong>.<br />
+            Escríbela correctamente antes de que se acabe el tiempo (<strong>10s</strong> para palabras, <strong>30s</strong> para oraciones).
           </p>
           <div style={{
             display: 'inline-flex', gap: 24, background: '#f0f4ff',
@@ -174,17 +206,71 @@ export default function DictationGame({ onExit }: Props) {
             <span style={{ color: '#2e7d32', fontWeight: 700 }}>✅ Correcta: +{POINTS_CORRECT} pts</span>
             <span style={{ color: '#c62828', fontWeight: 700 }}>❌ Incorrecta: −{POINTS_INCORRECT} pts</span>
           </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary"
-              style={{ padding: '14px 40px', fontSize: '1rem' }}
-              onClick={startNewWord}
+              style={{
+                padding: '14px 28px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+              onClick={() => startGame('word')}
             >
-              🎮 Comenzar
+              🎮 Word
             </button>
             <button
-              className="btn btn-ghost"
-              style={{ padding: '14px 22px', fontSize: '0.95rem' }}
+              style={{
+                padding: '14px 28px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #009688, #004d40)',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(0, 150, 136, 0.4)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 150, 136, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 150, 136, 0.4)';
+              }}
+              onClick={() => startGame('sentences')}
+            >
+              📝 Sentences
+            </button>
+            <button
+              style={{
+                padding: '14px 22px',
+                fontSize: '0.95rem',
+                borderRadius: '10px',
+                border: '1px solid #cfd8dc',
+                background: '#fff',
+                color: '#546e7a',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f5f7fa';
+                e.currentTarget.style.color = '#37474f';
+                e.currentTarget.style.borderColor = '#b0bec5';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff';
+                e.currentTarget.style.color = '#546e7a';
+                e.currentTarget.style.borderColor = '#cfd8dc';
+              }}
               onClick={onExit}
             >
               Volver
@@ -198,6 +284,7 @@ export default function DictationGame({ onExit }: Props) {
   // ─── Pantalla de juego ────────────────────────────────────
   const timerDanger = timeLeft <= 3;
   const timerWarning = timeLeft <= 5 && timeLeft > 3;
+  const maxTime = mode === 'word' ? TIMER_SECONDS_WORD : TIMER_SECONDS_SENTENCES;
 
   return (
     <div className="page-content">
@@ -216,12 +303,34 @@ export default function DictationGame({ onExit }: Props) {
             🏆 {score} pts
           </div>
           <div style={{ color: '#78909c', fontSize: '0.85rem', fontWeight: 600 }}>
-            Ronda #{round}
+            Ronda #{round} ({mode === 'word' ? 'Word' : 'Sentences'})
           </div>
         </div>
         <button
-          className="btn btn-ghost"
-          style={{ fontSize: '0.85rem' }}
+          style={{
+            fontSize: '0.85rem',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            border: '1px solid #cfd8dc',
+            background: '#fff',
+            color: '#546e7a',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#f5f7fa';
+            e.currentTarget.style.color = '#37474f';
+            e.currentTarget.style.borderColor = '#b0bec5';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff';
+            e.currentTarget.style.color = '#546e7a';
+            e.currentTarget.style.borderColor = '#cfd8dc';
+          }}
           onClick={onExit}
         >
           ✕ Salir
@@ -236,7 +345,9 @@ export default function DictationGame({ onExit }: Props) {
           {phase === 'loading' && (
             <div style={{ paddingTop: 40 }}>
               <div style={{ fontSize: '2.8rem', marginBottom: 14 }}>⏳</div>
-              <p style={{ color: '#90a4ae', fontWeight: 600 }}>Cargando palabra...</p>
+              <p style={{ color: '#90a4ae', fontWeight: 600 }}>
+                {mode === 'word' ? 'Cargando palabra...' : 'Cargando oración...'}
+              </p>
             </div>
           )}
 
@@ -254,7 +365,7 @@ export default function DictationGame({ onExit }: Props) {
                 Escuchando...
               </p>
               <p style={{ color: '#90a4ae', fontSize: '0.82rem' }}>
-                La palabra se reproducirá dos veces
+                {mode === 'word' ? 'La palabra se reproducirá dos veces' : 'La oración se reproducirá dos veces'}
               </p>
               <style>{`
                 @keyframes dictation-pulse {
@@ -296,7 +407,7 @@ export default function DictationGame({ onExit }: Props) {
               <div style={{ height: 5, background: '#e8eef8', borderRadius: 3, marginBottom: 26, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
-                  width: `${(timeLeft / TIMER_SECONDS) * 100}%`,
+                  width: `${(timeLeft / maxTime) * 100}%`,
                   background: timerDanger ? '#ef5350' : timerWarning ? '#ffb74d' : '#1565c0',
                   transition: 'width 0.85s linear, background 0.4s',
                   borderRadius: 3,
@@ -304,7 +415,7 @@ export default function DictationGame({ onExit }: Props) {
               </div>
 
               <p style={{ color: '#546e7a', fontSize: '0.85rem', marginBottom: 14, fontWeight: 600 }}>
-                Escribe la palabra que escuchaste:
+                {mode === 'word' ? 'Escribe la palabra que escuchaste:' : 'Escribe la oración que escuchaste:'}
               </p>
 
               <form onSubmit={handleSubmit}>
@@ -313,10 +424,10 @@ export default function DictationGame({ onExit }: Props) {
                   type="text"
                   className="form-input"
                   style={{
-                    textAlign: 'center', fontSize: '1.35rem', fontWeight: 700,
-                    letterSpacing: 3, marginBottom: 16,
+                    textAlign: 'center', fontSize: mode === 'word' ? '1.35rem' : '1.05rem', fontWeight: 700,
+                    letterSpacing: mode === 'word' ? 3 : 'normal', marginBottom: 16,
                   }}
-                  placeholder="_ _ _ _ _"
+                  placeholder={mode === 'word' ? '_ _ _ _ _' : 'Escribe la oración aquí...'}
                   value={answer}
                   onChange={handleAnswerChange}
                   autoComplete="off"
@@ -349,23 +460,29 @@ export default function DictationGame({ onExit }: Props) {
                 {lastResult.correct ? '¡Correcta!' : lastResult.timedOut ? '¡Tiempo!' : 'Incorrecta'}
               </div>
 
-              {/* Word reveal */}
+              {/* Word/Sentence reveal */}
               <div style={{
                 background: lastResult.correct ? 'rgba(76,175,80,0.07)' : 'rgba(244,67,54,0.07)',
                 border: `1.5px solid ${lastResult.correct ? 'rgba(76,175,80,0.25)' : 'rgba(244,67,54,0.25)'}`,
                 borderRadius: 14, padding: '16px 22px', marginBottom: 10,
               }}>
                 <div style={{ fontSize: '0.7rem', color: '#b0bec5', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6, letterSpacing: '0.5px' }}>
-                  La palabra era
+                  {mode === 'word' ? 'La palabra era' : 'La oración era'}
                 </div>
-                <div style={{ fontSize: '1.7rem', fontWeight: 900, color: '#0d47a1', letterSpacing: 2 }}>
+                <div style={{
+                  fontSize: mode === 'word' ? '1.7rem' : '1.25rem',
+                  fontWeight: 900,
+                  color: '#0d47a1',
+                  letterSpacing: mode === 'word' ? 2 : 'normal',
+                  lineHeight: 1.4,
+                }}>
                   {lastResult.word}
                 </div>
               </div>
 
-              {/* User answer (only if wrong and they typed something) */}
+              {/* User answer */}
               {!lastResult.correct && lastResult.userAnswer && (
-                <div style={{ fontSize: '0.82rem', color: '#90a4ae', marginBottom: 4 }}>
+                <div style={{ fontSize: '0.82rem', color: '#90a4ae', marginBottom: 4, overflowWrap: 'break-word' }}>
                   Tu respuesta:{' '}
                   <strong style={{ color: '#e53935' }}>{lastResult.userAnswer}</strong>
                 </div>
@@ -387,9 +504,9 @@ export default function DictationGame({ onExit }: Props) {
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '0.95rem' }}
-                onClick={startNewWord}
+                onClick={() => startNextRound(mode)}
               >
-                🔊 Siguiente palabra
+                🔊 {mode === 'word' ? 'Siguiente palabra' : 'Siguiente oración'}
               </button>
             </div>
           )}

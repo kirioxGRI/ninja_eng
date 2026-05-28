@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Typing Tutor – NinjaEng</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --bg-card: #0f172a;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.4);
+      --success: #4ade80;
+      --success-glow: rgba(74, 222, 128, 0.35);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.45);
+      --text: #f8fafc;
+      --text-muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Gameboard Panel Container */
+    #game-container {
+      position: relative;
+      width: 95vw;
+      max-width: 860px;
+      height: 90vh;
+      max-height: 640px;
+      background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
+      transition: box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    #game-container.flash-red {
+      box-shadow: 0 0 45px rgba(239, 68, 68, 0.45), inset 0 0 24px rgba(239, 68, 68, 0.3);
+      border-color: var(--danger);
+    }
+
+    #game-container.flash-green {
+      box-shadow: 0 0 45px rgba(74, 222, 128, 0.35), inset 0 0 20px rgba(74, 222, 128, 0.2);
+      border-color: var(--success);
+    }
+
+    /* Neon Grid Overlay */
+    .arcade-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px), 
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* HUD Bar */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(15, 23, 42, 0.85);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      z-index: 10;
+    }
+
+    .hud-stat {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .hud-badge {
+      background: rgba(96, 165, 250, 0.12);
+      color: #60a5fa;
+      border-radius: 8px;
+      padding: 3px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-left: 14px;
+    }
+
+    .lives-container {
+      display: flex;
+      gap: 8px;
+      font-size: 1.25rem;
+    }
+
+    .life-heart {
+      transition: opacity 0.3s ease;
+    }
+
+    .life-heart.lost {
+      opacity: 0.22;
+      filter: grayscale(100%);
+    }
+
+    /* Laser Line danger indicator */
+    .laser-line {
+      position: absolute;
+      bottom: 8%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, var(--danger) 50%, transparent 100%);
+      box-shadow: 0 0 12px var(--danger);
+      opacity: 0.52;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Screens (Menus) */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      text-align: center;
+      z-index: 8;
+      background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+    }
+
+    .screen-icon {
+      font-size: 5rem;
+      margin-bottom: 14px;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .screen-title {
+      font-size: 2.5rem;
+      font-weight: 900;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+      text-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+    }
+
+    .screen-desc {
+      color: #94a3b8;
+      font-size: 0.98rem;
+      max-width: 480px;
+      line-height: 1.65;
+      margin-bottom: 26px;
+    }
+
+    .instructions-box {
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 16px 28px;
+      max-width: 420px;
+      font-size: 0.85rem;
+      color: #64748b;
+      line-height: 1.55;
+      text-align: left;
+      margin-bottom: 32px;
+    }
+
+    .instructions-box strong {
+      color: #cbd5e1;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 44px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.5);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* Falling Word Item */
+    .falling-word {
+      position: absolute;
+      white-space: nowrap;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 7px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+      z-index: 2;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s;
+    }
+
+    .falling-word.sentence {
+      border-radius: 14px;
+      padding: 10px 18px;
+    }
+
+    .falling-word.locked {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--primary);
+      box-shadow: 0 0 20px var(--primary-glow);
+      z-index: 5;
+    }
+
+    .falling-word.exploding {
+      transform: scale(1.4) rotate(4deg);
+      opacity: 0;
+      border-color: var(--success);
+      background: rgba(74, 222, 128, 0.25);
+    }
+
+    .word-text {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .falling-word.sentence .word-text {
+      font-size: 1rem;
+    }
+
+    .word-text .typed {
+      color: var(--primary);
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+    }
+
+    .word-text .remaining {
+      opacity: 0.88;
+    }
+
+    .word-translation {
+      font-size: 0.68rem;
+      color: #64748b;
+      font-weight: 600;
+      margin-top: 3px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .falling-word.locked .word-translation {
+      color: #93c5fd;
+    }
+
+    .word-lock-indicator {
+      position: absolute;
+      top: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      background: var(--primary);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--primary);
+      display: none;
+    }
+
+    .falling-word.locked .word-lock-indicator {
+      display: block;
+    }
+
+    /* Play Board Container */
+    #board {
+      position: absolute;
+      inset: 64px 0 0 0;
+      width: 100%;
+      height: calc(100% - 64px);
+    }
+
+    /* Scoreboard End Box */
+    .score-board-box {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 24px 48px;
+      margin-bottom: 36px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .score-title {
+      font-size: 0.72rem;
+      color: #64748b;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .score-value {
+      font-size: 3.2rem;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .score-value span {
+      font-size: 1.2rem;
+      color: #64748b;
+    }
+
+    .score-level {
+      font-size: 0.85rem;
+      color: #60a5fa;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+
+    /* Hidden Utility Classes */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div class="arcade-grid"></div>
+
+    <!-- HUD BAR -->
+    <div id="hud" class="hidden">
+      <div class="hud-stat">
+        🏆 <span id="hud-score" style="color: #60a5fa;">0</span> <span style="font-size: 0.8rem; color: #64748b;">pts</span>
+        <span id="hud-level" class="hud-badge">Level 1</span>
+      </div>
+
+      <div class="lives-container">
+        <span class="life-heart" id="heart-1">❤️</span>
+        <span class="life-heart" id="heart-2">❤️</span>
+        <span class="life-heart" id="heart-3">❤️</span>
+      </div>
+    </div>
+
+    <!-- MAIN MENU (START) -->
+    <div id="start-screen" class="screen">
+      <div class="screen-icon">⌨️</div>
+      <h2 class="screen-title">Typing Tutor</h2>
+      <p class="screen-desc">
+        ¡Practica tu inglés a toda velocidad! Escribe las palabras y oraciones en inglés que caen antes de que toquen la línea roja.
+      </p>
+
+      <div class="instructions-box">
+        💡 <strong>Cómo jugar:</strong> Simplemente escribe con tu teclado. Si te equivocas de palabra, presiona <strong>ESC</strong> o <strong>Backspace</strong> para desbloquear y cambiar de objetivo.
+      </div>
+
+      <button class="btn btn-primary" onclick="startGame()">🎮 Comenzar Juego</button>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="gameover-screen" class="screen hidden">
+      <div class="screen-icon">💥</div>
+      <h2 class="screen-title" style="color: #ef4444; text-shadow: 0 4px 16px rgba(239,68,68,0.25);">Game Over</h2>
+      <p class="screen-desc">¡Buen intento! Tu vocabulario va mejorando.</p>
+
+      <div class="score-board-box">
+        <div class="score-title">Puntuación final</div>
+        <div class="score-value" id="final-score">0 <span>pts</span></div>
+        <div class="score-level" id="final-level">Llegaste al Nivel 1</div>
+      </div>
+
+      <button class="btn btn-primary" onclick="startGame()">🎮 Jugar de nuevo</button>
+    </div>
+
+    <!-- PLAY BOARD -->
+    <div id="board" class="hidden"></div>
+
+    <!-- LASER DANGER INDICATOR -->
+    <div class="laser-line"></div>
+  </div>
+
+  <script>
+    // Embedded Vocabulary Pool (Words & Example Sentences)
+    const vocabularyPool = [
+      { word: 'welcome', translation: 'bienvenido', isSentence: false },
+      { word: 'english', translation: 'inglés', isSentence: false },
+      { word: 'learning', translation: 'aprendizaje', isSentence: false },
+      { word: 'keyboard', translation: 'teclado', isSentence: false },
+      { word: 'software', translation: 'software', isSentence: false },
+      { word: 'adventure', translation: 'aventura', isSentence: false },
+      { word: 'speed', translation: 'velocidad', isSentence: false },
+      { word: 'challenge', translation: 'desafío', isSentence: false },
+      { word: 'success', translation: 'éxito', isSentence: false },
+      { word: 'education', translation: 'educación', isSentence: false },
+      { word: 'practice', translation: 'práctica', isSentence: false },
+      { word: 'improvement', translation: 'mejora', isSentence: false },
+      { word: 'never give up', translation: 'nunca te rindas', isSentence: true },
+      { word: 'practice makes perfect', translation: 'la práctica hace al maestro', isSentence: true },
+      { word: 'he goes home', translation: 'él va a casa', isSentence: true },
+      { word: 'she loves books', translation: 'a ella le encantan los libros', isSentence: true },
+      { word: 'the sky is blue', translation: 'el cielo es azul', isSentence: true },
+      { word: 'keep it simple', translation: 'mantenlo simple', isSentence: true }
+    ];
+
+    // Game state parameters
+    let phase = 'menu'; // menu, playing, gameover
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    let activeWords = [];
+    let currentTargetId = null;
+
+    let lastSpawnTime = 0;
+    let lastFrameTime = 0;
+    let animationFrameId = null;
+
+    const gameContainer = document.getElementById('game-container');
+    const startScreen = document.getElementById('start-screen');
+    const gameoverScreen = document.getElementById('gameover-screen');
+    const hud = document.getElementById('hud');
+    const board = document.getElementById('board');
+    const hudScore = document.getElementById('hud-score');
+    const hudLevel = document.getElementById('hud-level');
+    const finalScore = document.getElementById('final-score');
+    const finalLevel = document.getElementById('final-level');
+
+    // Synthesis Audio feedback helper
+    function playAudio(correct) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (correct) {
+          osc.frequency.setValueAtTime(680, ctx.currentTime);
+          gain.gain.setValueAtTime(0.04, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.08);
+        } else {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(140, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.12);
+        }
+      } catch (e) {}
+    }
+
+    function startGame() {
+      phase = 'playing';
+      score = 0;
+      lives = 3;
+      level = 1;
+      activeWords = [];
+      currentTargetId = null;
+      lastSpawnTime = Date.now();
+
+      // UI reset
+      startScreen.classList.add('hidden');
+      gameoverScreen.classList.add('hidden');
+      hud.classList.remove('hidden');
+      board.classList.remove('hidden');
+      board.innerHTML = '';
+      
+      hudScore.textContent = score;
+      hudLevel.textContent = `Level ${level}`;
+      updateHeartsGUI();
+
+      lastFrameTime = performance.now();
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      phase = 'gameover';
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+
+      hud.classList.add('hidden');
+      board.classList.add('hidden');
+      gameoverScreen.classList.remove('hidden');
+
+      finalScore.innerHTML = `${score} <span>pts</span>`;
+      finalLevel.textContent = `Llegaste al Nivel ${level}`;
+    }
+
+    function updateHeartsGUI() {
+      for (let i = 1; i <= 3; i++) {
+        const heart = document.getElementById(`heart-${i}`);
+        if (i <= lives) {
+          heart.classList.remove('lost');
+        } else {
+          heart.classList.add('lost');
+        }
+      }
+    }
+
+    function findValidSpawnX(text) {
+      let attempts = 0;
+      let candidateX = 5 + Math.random() * 75; // 5% to 80%
+
+      while (attempts < 10) {
+        const x = 5 + Math.random() * 75;
+        const isOverlap = activeWords.some(w => {
+          if (w.y > 22) return false;
+          const lenDiff = Math.max(w.word.length, text.length) * 0.7;
+          return Math.abs(w.x - x) < 14 + lenDiff;
+        });
+
+        if (!isOverlap) return x;
+        attempts++;
+      }
+      return candidateX;
+    }
+
+    function spawnWord() {
+      const selected = vocabularyPool[Math.floor(Math.random() * vocabularyPool.length)];
+      const baseSpeed = 4.5 + level * 0.75;
+      const speedVariation = Math.random() * 1.5;
+      const finalSpeed = (selected.isSentence ? baseSpeed * 0.78 : baseSpeed) + speedVariation;
+      const spawnX = findValidSpawnX(selected.word);
+
+      // Create DOM element
+      const el = document.createElement('div');
+      el.className = `falling-word ${selected.isSentence ? 'sentence' : ''}`;
+      el.style.left = `${spawnX}%`;
+      el.style.top = `-8%`;
+
+      el.innerHTML = `
+        <div class="word-text">
+          <span class="typed"></span>
+          <span class="remaining">${selected.word}</span>
+        </div>
+        <div class="word-translation">${selected.translation}</div>
+        <div class="word-lock-indicator"></div>
+      `;
+
+      board.appendChild(el);
+
+      activeWords.push({
+        id: Date.now() + Math.random(),
+        word: selected.word,
+        translation: selected.translation,
+        isSentence: selected.isSentence,
+        x: spawnX,
+        y: -8,
+        speed: finalSpeed,
+        progress: 0,
+        isExploding: false,
+        explodeTimer: 0,
+        element: el
+      });
+    }
+
+    // Main animation and physics loop
+    function gameLoop(timestamp) {
+      if (phase !== 'playing') return;
+
+      const elapsed = timestamp - lastFrameTime;
+      lastFrameTime = timestamp;
+      const dt = elapsed / 1000;
+
+      let lifeLost = false;
+
+      activeWords = activeWords.map(w => {
+        if (w.isExploding) {
+          w.explodeTimer += dt;
+          return w;
+        }
+
+        w.y += w.speed * dt;
+        w.element.style.top = `${w.y}%`;
+        return w;
+      }).filter(w => {
+        if (w.isExploding) {
+          if (w.explodeTimer >= 0.28) {
+            w.element.remove();
+            return false;
+          }
+          return true;
+        }
+
+        if (w.y >= 92) {
+          lifeLost = true;
+          w.element.remove();
+          if (currentTargetId === w.id) {
+            currentTargetId = null;
+          }
+          return false;
+        }
+        return true;
+      });
+
+      if (lifeLost) {
+        lives = Math.max(0, lives - 1);
+        updateHeartsGUI();
+        gameContainer.classList.add('flash-red');
+        setTimeout(() => gameContainer.classList.remove('flash-red'), 200);
+
+        if (lives <= 0) {
+          endGame();
+          return;
+        }
+      }
+
+      // Check spawn timer
+      const now = Date.now();
+      const spawnInterval = Math.max(1600, 3600 - level * 320);
+      if (now - lastSpawnTime >= spawnInterval) {
+        spawnWord();
+        lastSpawnTime = now;
+      }
+
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    // Keyboard Keydown input detection
+    window.addEventListener('keydown', (e) => {
+      if (phase !== 'playing') return;
+
+      if (e.key === 'Alt' || e.key === 'Control' || e.key === 'Shift' || e.key === 'Meta' || e.key === 'CapsLock') {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (currentTargetId !== null) {
+          const target = activeWords.find(w => w.id === currentTargetId);
+          if (target) {
+            target.progress = 0;
+            target.element.classList.remove('locked');
+            updateWordTextGUI(target);
+          }
+          currentTargetId = null;
+        }
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        if (currentTargetId !== null) {
+          const target = activeWords.find(w => w.id === currentTargetId);
+          if (target) {
+            target.progress = Math.max(0, target.progress - 1);
+            if (target.progress === 0) {
+              target.element.classList.remove('locked');
+              currentTargetId = null;
+            }
+            updateWordTextGUI(target);
+          }
+        }
+        return;
+      }
+
+      if (e.key.length !== 1) return;
+      const typedChar = e.key.toLowerCase();
+
+      if (currentTargetId === null) {
+        // Lock lowest candidate matching starting letter
+        const candidates = activeWords
+          .filter(w => !w.isExploding && w.word[0].toLowerCase() === typedChar)
+          .sort((a, b) => b.y - a.y);
+
+        if (candidates.length > 0) {
+          const targeted = candidates[0];
+          currentTargetId = targeted.id;
+          targeted.progress = 1;
+          targeted.element.classList.add('locked');
+          updateWordTextGUI(targeted);
+          playAudio(true);
+          checkWordCompletion(targeted);
+        } else {
+          playAudio(false);
+        }
+      } else {
+        const target = activeWords.find(w => w.id === currentTargetId);
+        if (!target || target.isExploding) return;
+
+        const expectedChar = target.word[target.progress].toLowerCase();
+
+        if (typedChar === expectedChar) {
+          target.progress += 1;
+          updateWordTextGUI(target);
+          playAudio(true);
+          checkWordCompletion(target);
+        } else {
+          playAudio(false);
+        }
+      }
+    });
+
+    function updateWordTextGUI(target) {
+      const typedSpan = target.element.querySelector('.typed');
+      const remainingSpan = target.element.querySelector('.remaining');
+      
+      typedSpan.textContent = target.word.substring(0, target.progress);
+      remainingSpan.textContent = target.word.substring(target.progress);
+    }
+
+    function checkWordCompletion(target) {
+      if (target.progress >= target.word.length) {
+        // Complete!
+        gameContainer.classList.add('flash-green');
+        setTimeout(() => gameContainer.classList.remove('flash-green'), 150);
+
+        const points = target.word.length * 2;
+        score += points;
+        hudScore.textContent = score;
+
+        // Progress level every 80 points
+        const nextLevel = Math.floor(score / 80) + 1;
+        if (nextLevel !== level) {
+          level = nextLevel;
+          hudLevel.textContent = `Level ${level}`;
+        }
+
+        // Explode
+        target.isExploding = true;
+        target.explodeTimer = 0;
+        target.element.classList.add('exploding');
+
+        currentTargetId = null;
+      }
+    }
+  </script>
+</body>
+</html>

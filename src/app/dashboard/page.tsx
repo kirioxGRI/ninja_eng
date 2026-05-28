@@ -9,5 +9,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  redirect("/dashboard/aprender");
+  if (session.user) {
+    redirect("/dashboard/reading");
+  }
 }

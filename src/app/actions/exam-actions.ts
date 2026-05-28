@@ -71,7 +71,7 @@ export async function getRandomWordsForExam(
       return {
         success: false,
         words: [],
-        error: 'No tienes palabras marcadas como aprendidas. ¡Aprende algunas palabras primero en la sección Aprender!',
+        error: 'No tienes palabras marcadas como aprendidas. ¡Aprende algunas palabras primero en la sección Reading!',
       };
     }
 
@@ -173,7 +173,7 @@ export async function submitExamResult(
     }
 
     // Revalidate learning path stats
-    revalidatePath('/dashboard/aprender');
+    revalidatePath('/dashboard/reading');
 
     return {
       success: true,
