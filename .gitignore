@@ -94,3 +94,4 @@ ninja.md
 *.tmp
 
 env.txt
+.env.local
