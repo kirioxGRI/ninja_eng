@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { auth } from '@/auth';
 import { getActiveUser } from '@/app/actions/user-actions';
 import { getRandomWord, getUserStats } from '@/app/actions/word-actions';
 import WordCard from '@/components/learning/WordCard';
 import CreateUserPrompt from '@/components/learning/CreateUserPrompt';
+import TopbarUserMenu from '@/components/layout/TopbarUserMenu';
 
 export const metadata: Metadata = {
   title: 'Aprender – NinjaEng',
@@ -10,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AprenderPage() {
+  const session = await auth();
   const user = await getActiveUser();
 
   if (!user) {
@@ -66,6 +69,11 @@ export default async function AprenderPage() {
           <span className="topbar-badge">
             🎯 {stats.aprendidas} / {stats.totalPalabras} aprendidas
           </span>
+          <TopbarUserMenu
+            email={session?.user?.email}
+            image={session?.user?.image}
+            name={session?.user?.name}
+          />
         </div>
       </div>
 
