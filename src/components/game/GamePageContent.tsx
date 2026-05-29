@@ -19,7 +19,7 @@ const games: {
   {
     id: 'writing-word',
     title: 'Writing',
-    description: 'Juego de mecanografía. Escribe las palabras y oraciones en inglés que caen antes de que toquen el fondo.',
+    description: 'Juego de mecanografía. Escribe las palabras en inglés que caen antes de que toquen el fondo.',
     color: '#1565c0',
     bg: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
     available: true,
