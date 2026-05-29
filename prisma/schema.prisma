@@ -96,5 +96,6 @@ model word_list {
   traduccion_espanol     String                   @db.VarChar(150)
   oracion_ejemplo        String?
   creado_en              DateTime?                @default(now()) @db.Timestamp(6)
+  nivel                  String?                  @db.VarChar(50)
   usuario_avance_palabra usuario_avance_palabra[]
 }
