@@ -62,35 +62,32 @@
   line-height: 1.45;
 }
 
-.sliderRow {
+.automationGrid {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.sliderLabel {
-  color: #58708a;
-  font-size: 0.86rem;
-  font-weight: 600;
-  white-space: nowrap;
+.automationItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #d7e3f2;
+  border-radius: 14px;
+  background: #f8fbff;
 }
 
-.slider {
-  width: 100%;
-  accent-color: #f59e0b;
-  cursor: pointer;
+.automationRange {
+  color: #123c67;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
-.sliderValue {
-  min-width: 40px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  background: rgba(245, 158, 11, 0.18);
-  color: #f59e0b;
-  font-size: 1rem;
-  font-weight: 900;
-  text-align: center;
+.automationValue {
+  color: #5c7187;
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .optionsGrid {
@@ -194,15 +191,11 @@
     grid-template-columns: 1fr;
   }
 
-  .sliderRow {
-    grid-template-columns: 1fr;
-  }
-
-  .sliderLabel,
-  .sliderValue {
-    white-space: normal;
-  }
   .description {
     font-size: 0.86rem;
+  }
+
+  .automationGrid {
+    grid-template-columns: 1fr;
   }
 }

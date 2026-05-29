@@ -2,55 +2,51 @@
 
 import styles from './TypingTutorStartPanel.module.css';
 import {
-  TYPING_TUTOR_LEVEL_OPTIONS,
+  TYPING_TUTOR_DIFFICULTY_LEVELS,
+  TYPING_TUTOR_VOCABULARY_THRESHOLDS,
   TYPING_TUTOR_WORD_SOURCE_OPTIONS,
-  type TypingTutorWordLevel,
   type TypingTutorWordSource,
 } from '@/lib/game/typing-tutor-options';
 
 type Props = {
   errorMessage: string | null;
-  maxSimultaneous: number;
-  onLevelChange: (value: TypingTutorWordLevel) => void;
-  onMaxSimultaneousChange: (value: number) => void;
   onSourceChange: (value: TypingTutorWordSource) => void;
-  selectedLevel: TypingTutorWordLevel;
   wordSource: TypingTutorWordSource;
 };
 
 export default function TypingTutorStartPanel({
   errorMessage,
-  maxSimultaneous,
-  onLevelChange,
-  onMaxSimultaneousChange,
   onSourceChange,
-  selectedLevel,
   wordSource,
 }: Props) {
   return (
     <div className={styles.root}>
       <p className={styles.description}>
-        Configura tu práctica antes de empezar. Elige la fuente del vocabulario, el nivel si aplica y la cantidad de
-        palabras simultáneas.
+        Configura tu práctica antes de empezar. `Typing Tutor` usa 10 niveles automáticos y ajusta la presión según
+        cuántas palabras hayas procesado.
       </p>
 
       <div className={styles.card}>
         <div className={styles.field}>
           <div className={styles.fieldHeader}>
-            <span className={styles.fieldTitle}>Densidad de palabras</span>
-            <span className={styles.fieldHint}>Define cuántas palabras pueden caer al mismo tiempo.</span>
+            <span className={styles.fieldTitle}>Dificultad automática</span>
+            <span className={styles.fieldHint}>
+              No hay control manual. El sistema define el nivel y la cantidad de palabras desplegadas en cada tramo.
+            </span>
           </div>
-          <div className={styles.sliderRow}>
-            <span className={styles.sliderLabel}>Objetos simultáneos</span>
-            <input
-              className={styles.slider}
-              type="range"
-              min={1}
-              max={5}
-              value={maxSimultaneous}
-              onChange={(e) => onMaxSimultaneousChange(parseInt(e.target.value, 10))}
-            />
-            <span className={styles.sliderValue}>{maxSimultaneous}</span>
+          <div className={styles.automationGrid}>
+            {TYPING_TUTOR_DIFFICULTY_LEVELS.map((difficulty) => (
+              <div key={difficulty.level} className={styles.automationItem}>
+                <span className={styles.automationRange}>
+                  {`Nivel ${difficulty.level} · ${difficulty.rangeLabel}`}
+                </span>
+                <span className={styles.automationValue}>
+                  {difficulty.displayedWords === 1
+                    ? '1 palabra desplegada'
+                    : `${difficulty.displayedWords} palabras desplegadas`}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -80,24 +76,13 @@ export default function TypingTutorStartPanel({
         {wordSource === 'random' && (
           <div className={styles.field}>
             <div className={styles.fieldHeader}>
-              <span className={styles.fieldTitle}>Nivel de palabras aleatorias</span>
-              <span className={styles.fieldHint}>El juego consultará `public.word_list.nivel` usando el nivel elegido.</span>
-            </div>
-            <div className={styles.levelsGrid}>
-              {TYPING_TUTOR_LEVEL_OPTIONS.map((level) => {
-                const isActive = level.value === selectedLevel;
-                return (
-                  <button
-                    key={level.value}
-                    type="button"
-                    className={`${styles.levelButton} ${isActive ? styles.levelButtonActive : ''}`}
-                    onClick={() => onLevelChange(level.value)}
-                  >
-                    <span className={styles.levelLabel}>{level.label}</span>
-                    <span className={styles.levelDescription}>{level.description}</span>
-                  </button>
-                );
-              })}
+              <span className={styles.fieldTitle}>Escalado de vocabulario</span>
+              <span className={styles.fieldHint}>
+                `Typing Tutor` empieza con palabras Básicas, cambia a Intermedio al completar{' '}
+                {TYPING_TUTOR_VOCABULARY_THRESHOLDS.intermediate} y, tras{' '}
+                {TYPING_TUTOR_VOCABULARY_THRESHOLDS.advanced - TYPING_TUTOR_VOCABULARY_THRESHOLDS.intermediate}{' '}
+                palabras más, usa solo Avanzado.
+              </span>
             </div>
           </div>
         )}

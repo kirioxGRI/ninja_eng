@@ -5,10 +5,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuthenticatedUser } from '@/lib/authenticated-user';
 import {
-  DEFAULT_TYPING_TUTOR_LEVEL,
-  TYPING_TUTOR_WORD_LIMIT,
+  TYPING_TUTOR_LEVEL_OPTIONS,
   type GetTypingTutorWordsInput,
   type TypingTutorGameWord,
+  type TypingTutorWordLevel,
 } from '@/lib/game/typing-tutor-options';
 
 const TYPING_TUTOR_GAME_NAME = 'typing_tutor';
@@ -38,10 +38,11 @@ export type TypingTutorRankingEntry = {
 
 export type TypingTutorRankingSummary = {
   latestResult: TypingTutorRankingEntry | null;
-  playerBest: TypingTutorRankingEntry | null;
-  globalBest: TypingTutorRankingEntry | null;
+  topFive: TypingTutorRankingEntry[];
   totalResults: number;
 };
+
+const TYPING_TUTOR_RANDOM_LEVELS = TYPING_TUTOR_LEVEL_OPTIONS.map((option) => option.value);
 
 export async function getWordForDictation(): Promise<{ id: number; palabra: string } | null> {
   try {
@@ -113,6 +114,16 @@ function mapRankingRow(row: RankingHistoryRecord | null | undefined): TypingTuto
   };
 }
 
+function normalizeTypingTutorLevel(level: string | null | undefined): TypingTutorWordLevel | null {
+  if (!level) return null;
+
+  const match = TYPING_TUTOR_RANDOM_LEVELS.find(
+    (candidate) => candidate.toLowerCase() === level.toLowerCase(),
+  );
+
+  return match ?? null;
+}
+
 async function getTypingTutorGameId(db: RankingDbClient): Promise<number> {
   const game = await db.game_catalog.findFirst({
     where: {
@@ -137,7 +148,6 @@ async function getTypingTutorGameId(db: RankingDbClient): Promise<number> {
 async function buildTypingTutorRankingSummary(
   db: RankingDbClient,
   gameId: number,
-  playerId: number,
   latestEntryId: number,
 ): Promise<TypingTutorRankingSummary> {
   const includePlayer = {
@@ -156,27 +166,20 @@ async function buildTypingTutorRankingSummary(
     { id: 'asc' as const },
   ];
 
-  const [latestRow, playerBestRow, globalBestRow, totalResults] = await Promise.all([
+  const [latestRow, topFiveRows, totalResults] = await Promise.all([
     db.player_game_ranking_history.findUnique({
       where: {
         id: latestEntryId,
       },
       include: includePlayer,
     }),
-    db.player_game_ranking_history.findFirst({
-      where: {
-        game_id: gameId,
-        player_id: playerId,
-      },
-      orderBy: rankingOrderBy,
-      include: includePlayer,
-    }),
-    db.player_game_ranking_history.findFirst({
+    db.player_game_ranking_history.findMany({
       where: {
         game_id: gameId,
       },
       orderBy: rankingOrderBy,
       include: includePlayer,
+      take: 5,
     }),
     db.player_game_ranking_history.count({
       where: {
@@ -187,8 +190,7 @@ async function buildTypingTutorRankingSummary(
 
   return {
     latestResult: mapRankingRow(latestRow),
-    playerBest: mapRankingRow(playerBestRow),
-    globalBest: mapRankingRow(globalBestRow),
+    topFive: topFiveRows.map((row) => mapRankingRow(row)).filter((row): row is TypingTutorRankingEntry => row !== null),
     totalResults,
   };
 }
@@ -228,7 +230,7 @@ export async function submitTypingTutorResult(score: number): Promise<TypingTuto
       WHERE history.id = ranked.id
     `;
 
-    return buildTypingTutorRankingSummary(tx, gameId, authenticatedUser.id, insertedEntry.id);
+    return buildTypingTutorRankingSummary(tx, gameId, insertedEntry.id);
   });
 }
 
@@ -248,6 +250,7 @@ export async function getWordsForTypingGame(input: GetTypingTutorWordsInput): Pr
               id: true,
               palabra: true,
               traduccion_espanol: true,
+              nivel: true,
             },
           },
         },
@@ -261,31 +264,30 @@ export async function getWordsForTypingGame(input: GetTypingTutorWordsInput): Pr
         word: record.word_list.palabra,
         translation: record.word_list.traduccion_espanol,
         isSentence: false,
+        level: normalizeTypingTutorLevel(record.word_list.nivel),
       }));
 
-      return shuffleWords(learnedWords).slice(0, TYPING_TUTOR_WORD_LIMIT);
+      return shuffleWords(learnedWords);
     }
 
-    const selectedLevel = input.level ?? DEFAULT_TYPING_TUTOR_LEVEL;
     const randomWords = await prisma.word_list.findMany({
       where: {
-        nivel: {
-          equals: selectedLevel,
-          mode: 'insensitive',
-        },
+        nivel: { in: TYPING_TUTOR_RANDOM_LEVELS },
       },
       select: {
         id: true,
         palabra: true,
         traduccion_espanol: true,
+        nivel: true,
       },
     });
 
-    return shuffleWords(randomWords).slice(0, TYPING_TUTOR_WORD_LIMIT).map((word) => ({
+    return shuffleWords(randomWords).map((word) => ({
       id: word.id,
       word: word.palabra,
       translation: word.traduccion_espanol,
       isSentence: false,
+      level: normalizeTypingTutorLevel(word.nivel),
     }));
   } catch (err) {
     console.error("Error in getWordsForTypingGame Server Action:", err);

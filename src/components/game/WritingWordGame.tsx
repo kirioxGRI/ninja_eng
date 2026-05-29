@@ -9,10 +9,10 @@ import {
 } from '@/app/actions/game-actions';
 import TypingTutorStartPanel from './TypingTutorStartPanel';
 import {
-  DEFAULT_TYPING_TUTOR_LEVEL,
   DEFAULT_TYPING_TUTOR_SOURCE,
+  getTypingTutorDifficultyProfile,
+  getTypingTutorVocabularyLevel,
   type TypingTutorGameWord,
-  type TypingTutorWordLevel,
   type TypingTutorWordSource,
 } from '@/lib/game/typing-tutor-options';
 
@@ -38,8 +38,8 @@ export default function WritingWordGame({ onExit }: Props) {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
+  const [wordsCompleted, setWordsCompleted] = useState(0);
   const [wordSource, setWordSource] = useState<TypingTutorWordSource>(DEFAULT_TYPING_TUTOR_SOURCE);
-  const [selectedLevel, setSelectedLevel] = useState<TypingTutorWordLevel>(DEFAULT_TYPING_TUTOR_LEVEL);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [wordsPool, setWordsPool] = useState<TypingTutorGameWord[]>([]);
   const [activeWords, setActiveWords] = useState<ActiveWord[]>([]);
@@ -48,14 +48,13 @@ export default function WritingWordGame({ onExit }: Props) {
   const [isSavingRanking, setIsSavingRanking] = useState(false);
   const [flashRed, setFlashRed] = useState(false);
   const [flashGreen, setFlashGreen] = useState(false);
-  const [maxSimultaneous, setMaxSimultaneous] = useState(1);
 
   const activeWordsRef = useRef<ActiveWord[]>([]);
   const wordsPoolRef = useRef<typeof wordsPool>([]);
   const scoreRef = useRef<number>(0);
+  const wordsCompletedRef = useRef<number>(0);
   const levelRef = useRef<number>(1);
   const livesRef = useRef<number>(3);
-  const maxSimultaneousRef = useRef<number>(1);
   const spawnTimerRef = useRef<number>(0);
   const lastFrameTimeRef = useRef<number>(0);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -73,12 +72,11 @@ export default function WritingWordGame({ onExit }: Props) {
 
   useEffect(() => {
     scoreRef.current = score;
-    const nextLevel = Math.floor(score / 80) + 1;
-    if (nextLevel !== level && phase === 'playing') {
-      setLevel(nextLevel);
-      levelRef.current = nextLevel;
-    }
-  }, [score, level, phase]);
+  }, [score]);
+
+  useEffect(() => {
+    wordsCompletedRef.current = wordsCompleted;
+  }, [wordsCompleted]);
 
   useEffect(() => {
     livesRef.current = lives;
@@ -88,9 +86,15 @@ export default function WritingWordGame({ onExit }: Props) {
   }, [lives, phase]);
 
   function spawnWordInList(pool: typeof wordsPool, currentList: ActiveWord[]): ActiveWord[] {
-    if (pool.length === 0) return currentList;
+    const currentVocabularyLevel = getTypingTutorVocabularyLevel(wordsCompletedRef.current);
+    const candidatePool =
+      wordSource === 'random'
+        ? pool.filter((item) => item.level === currentVocabularyLevel)
+        : pool;
 
-    const selected = pool[Math.floor(Math.random() * pool.length)];
+    if (candidatePool.length === 0) return currentList;
+
+    const selected = candidatePool[Math.floor(Math.random() * candidatePool.length)];
     const baseSpeed = 4.5 + levelRef.current * 0.75;
     const speedVariation = Math.random() * 1.5;
     const finalSpeed = (selected.isSentence ? baseSpeed * 0.78 : baseSpeed) + speedVariation;
@@ -114,23 +118,26 @@ export default function WritingWordGame({ onExit }: Props) {
   }
 
   function initializeGame(pool: TypingTutorGameWord[]) {
+    const initialProfile = getTypingTutorDifficultyProfile(0);
+
     setWordsPool(pool);
     wordsPoolRef.current = pool;
     setScore(0);
     setLives(3);
-    setLevel(1);
+    setLevel(initialProfile.level);
+    setWordsCompleted(0);
     setRankingSummary(null);
     setRankingError(null);
     setIsSavingRanking(false);
-    levelRef.current = 1;
+    levelRef.current = initialProfile.level;
     scoreRef.current = 0;
+    wordsCompletedRef.current = 0;
     livesRef.current = 3;
     runStartedRef.current = true;
     resultSavedRef.current = false;
     
-    // Spawn initial words based on maxSimultaneous setting
     let initialList: ActiveWord[] = [];
-    const initialCount = Math.min(maxSimultaneousRef.current, pool.length);
+    const initialCount = Math.min(initialProfile.maxSimultaneous, pool.length);
     if (pool.length > 0) {
       for (let i = 0; i < initialCount; i++) {
         initialList = spawnWordInList(pool, initialList);
@@ -150,7 +157,7 @@ export default function WritingWordGame({ onExit }: Props) {
       return 'No tienes palabras aprendidas disponibles para este modo. Marca algunas en Reading e inténtalo de nuevo.';
     }
 
-    return `No se encontraron palabras aleatorias del nivel ${selectedLevel}.`;
+    return 'No se encontró vocabulario aleatorio disponible para la progresión automática.';
   }
 
   async function startGame() {
@@ -162,7 +169,6 @@ export default function WritingWordGame({ onExit }: Props) {
     try {
       const fetched = await getWordsForTypingGame({
         source: wordSource,
-        level: wordSource === 'random' ? selectedLevel : undefined,
       });
 
       if (!fetched.length) {
@@ -192,6 +198,7 @@ export default function WritingWordGame({ onExit }: Props) {
     setScore(0);
     setLives(3);
     setLevel(1);
+    setWordsCompleted(0);
     setWordsPool([]);
     setActiveWords([]);
     setMenuError(null);
@@ -199,6 +206,7 @@ export default function WritingWordGame({ onExit }: Props) {
     setRankingError(null);
     setIsSavingRanking(false);
     scoreRef.current = 0;
+    wordsCompletedRef.current = 0;
     livesRef.current = 3;
     levelRef.current = 1;
     wordsPoolRef.current = [];
@@ -278,11 +286,12 @@ export default function WritingWordGame({ onExit }: Props) {
           return true;
         });
 
-      // 2. Check spawn timer using dt accumulator (respecting maxSimultaneous cap)
+      // 2. Check spawn timer using automatic difficulty progression
       spawnTimerRef.current += dt;
       const spawnInterval = Math.max(1.6, 3.6 - levelRef.current * 0.32);
+      const difficultyProfile = getTypingTutorDifficultyProfile(wordsCompletedRef.current);
       const nonExplodingCount = nextActiveWords.filter(w => !w.isExploding).length;
-      if (spawnTimerRef.current >= spawnInterval && nonExplodingCount < maxSimultaneousRef.current) {
+      if (spawnTimerRef.current >= spawnInterval && nonExplodingCount < difficultyProfile.maxSimultaneous) {
         nextActiveWords = spawnWordInList(wordsPoolRef.current, nextActiveWords);
         spawnTimerRef.current = 0;
       }
@@ -450,6 +459,18 @@ export default function WritingWordGame({ onExit }: Props) {
 
       const pointsEarned = fullText.length * 2;
       setScore((s) => s + pointsEarned);
+      setWordsCompleted((currentCount) => {
+        const nextCount = currentCount + 1;
+        const nextProfile = getTypingTutorDifficultyProfile(nextCount);
+        wordsCompletedRef.current = nextCount;
+
+        if (nextProfile.level !== levelRef.current) {
+          levelRef.current = nextProfile.level;
+          setLevel(nextProfile.level);
+        }
+
+        return nextCount;
+      });
 
       const nextActive = currentList.map((w) => (w.id === wordId ? { ...w, isExploding: true, explodeTimer: 0 } : w));
       setActiveWords(nextActive);
@@ -504,54 +525,46 @@ export default function WritingWordGame({ onExit }: Props) {
     }).format(date);
   }
 
-  function renderRankingCard(title: string, entry: TypingTutorRankingEntry | null, accent: string) {
+  function renderTopFiveRow(entry: TypingTutorRankingEntry, index: number) {
+    const isLeader = index === 0;
+
     return (
       <div
         style={{
-          flex: '1 1 260px',
-          minWidth: '240px',
-          background: '#ffffff',
-          border: `1px solid ${accent}33`,
-          borderRadius: '18px',
-          padding: '18px 20px',
-          boxShadow: '0 12px 28px rgba(15, 23, 42, 0.08)',
-          textAlign: 'left',
+          display: 'grid',
+          gridTemplateColumns: '72px minmax(0, 1fr) auto',
+          alignItems: 'center',
+          gap: '14px',
+          padding: '14px 16px',
+          borderRadius: '16px',
+          border: isLeader ? '1px solid rgba(21, 101, 192, 0.24)' : '1px solid #dbe7f5',
+          background: isLeader ? 'linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)' : '#f8fbff',
         }}
       >
-        <div style={{ fontSize: '0.72rem', color: accent, textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.8px', marginBottom: '8px' }}>
-          {title}
+        <div style={{ fontSize: '1.35rem', fontWeight: 900, color: isLeader ? '#1565c0' : '#0f172a', lineHeight: 1 }}>
+          #{entry.ranking}
         </div>
-
-        {entry ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px' }}>
-              <span style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
-                #{entry.ranking}
-              </span>
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: accent }}>
-                {entry.score ?? 0} pts
-              </span>
-            </div>
-            <div style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 700, marginBottom: '4px' }}>
-              {entry.playerName}
-            </div>
-            {formatRankingDate(entry.rankingDate) && (
-              <div style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: 1.45 }}>
-                {formatRankingDate(entry.rankingDate)}
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ fontSize: '0.86rem', color: '#64748b', lineHeight: 1.5 }}>
-            Aún no hay resultados registrados.
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '0.92rem', color: '#0f172a', fontWeight: 800, marginBottom: '3px' }}>
+            {entry.playerName}
           </div>
-        )}
+          {formatRankingDate(entry.rankingDate) && (
+            <div style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: 1.45 }}>
+              {formatRankingDate(entry.rankingDate)}
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: '0.95rem', color: isLeader ? '#1565c0' : '#0f172a', fontWeight: 800, whiteSpace: 'nowrap' }}>
+          {entry.score ?? 0} pts
+        </div>
       </div>
     );
   }
 
   const showHeaderActions = phase === 'idle' || phase === 'loading' || phase === 'gameover';
   const usesDarkBoard = phase === 'playing';
+  const difficultyProfile = getTypingTutorDifficultyProfile(wordsCompleted);
+  const vocabularyLevel = getTypingTutorVocabularyLevel(wordsCompleted);
   const boardBackground = usesDarkBoard
     ? 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)'
     : 'linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%)';
@@ -705,39 +718,41 @@ export default function WritingWordGame({ onExit }: Props) {
                   </div>
                 </div>
 
-                {/* Center: Max Objects Slider */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                    Objetos
-                  </span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={5}
-                    value={maxSimultaneous}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setMaxSimultaneous(val);
-                      maxSimultaneousRef.current = val;
-                    }}
-                    style={{
-                      width: '90px',
-                      accentColor: '#f59e0b',
-                      cursor: 'pointer',
-                    }}
-                  />
-                  <span style={{
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
                     background: 'rgba(245, 158, 11, 0.15)',
                     color: '#f59e0b',
-                    borderRadius: '6px',
-                    padding: '2px 10px',
-                    fontSize: '0.85rem',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '0.78rem',
                     fontWeight: 800,
-                    minWidth: '24px',
-                    textAlign: 'center',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.45px',
                   }}>
-                    {maxSimultaneous}
-                  </span>
+                    {difficultyProfile.maxSimultaneous} simultáneas
+                  </div>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    color: '#cbd5e1',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                  }}>
+                    {wordsCompleted} completadas
+                  </div>
+                  {wordSource === 'random' && (
+                    <div style={{
+                      background: 'rgba(56, 189, 248, 0.14)',
+                      color: '#7dd3fc',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                    }}>
+                      {vocabularyLevel}
+                    </div>
+                  )}
                 </div>
 
                 {/* Right: Lives & Exit */}
@@ -926,21 +941,10 @@ export default function WritingWordGame({ onExit }: Props) {
           {phase === 'idle' && (
             <TypingTutorStartPanel
               errorMessage={menuError}
-              maxSimultaneous={maxSimultaneous}
-              onLevelChange={(value) => {
-                setSelectedLevel(value);
-                setMenuError(null);
-              }}
-              onMaxSimultaneousChange={(value) => {
-                setMaxSimultaneous(value);
-                maxSimultaneousRef.current = value;
-                setMenuError(null);
-              }}
               onSourceChange={(value) => {
                 setWordSource(value);
                 setMenuError(null);
               }}
-              selectedLevel={selectedLevel}
               wordSource={wordSource}
             />
           )}
@@ -959,7 +963,7 @@ export default function WritingWordGame({ onExit }: Props) {
               <p style={{ fontWeight: 600 }}>
                 {wordSource === 'learned'
                   ? 'Cargando palabras aprendidas...'
-                  : `Cargando palabras aleatorias del nivel ${selectedLevel.toLowerCase()}...`}
+                  : 'Cargando banco de palabras para dificultad automática...'}
               </p>
             </div>
           )}
@@ -970,12 +974,17 @@ export default function WritingWordGame({ onExit }: Props) {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
+              justifyContent: 'flex-start',
               height: '100%',
+              width: '100%',
               textAlign: 'center',
-              padding: '40px',
+              padding: '28px 28px 40px',
               zIndex: 5,
               position: 'relative',
+              boxSizing: 'border-box',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              scrollbarGutter: 'stable',
             }}>
               <div style={{ fontSize: '4.5rem', marginBottom: '12px' }}>💥</div>
               <h2 style={{
@@ -1022,7 +1031,7 @@ export default function WritingWordGame({ onExit }: Props) {
                   textAlign: 'left',
                 }}>
                   <div style={{ fontSize: '0.74rem', color: '#1565c0', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.8px', marginBottom: '8px' }}>
-                    Resultado actual
+                    Mi ranking actual
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'baseline' }}>
                     <span style={{ fontSize: '1.95rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
@@ -1037,6 +1046,18 @@ export default function WritingWordGame({ onExit }: Props) {
                       </span>
                     ) : null}
                   </div>
+                  {rankingSummary?.latestResult && (
+                    <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.86rem', color: '#0f172a', fontWeight: 700 }}>
+                        {rankingSummary.latestResult.playerName}
+                      </span>
+                      {formatRankingDate(rankingSummary.latestResult.rankingDate) && (
+                        <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
+                          {formatRankingDate(rankingSummary.latestResult.rankingDate)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {isSavingRanking && (
                     <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#64748b' }}>
                       Guardando resultado en `player_game_ranking_history`...
@@ -1049,9 +1070,30 @@ export default function WritingWordGame({ onExit }: Props) {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-                  {renderRankingCard('Mejor ranking global', rankingSummary?.globalBest ?? null, '#1565c0')}
-                  {renderRankingCard('Tu mejor ranking', rankingSummary?.playerBest ?? null, '#00897b')}
+                <div style={{
+                  background: '#ffffff',
+                  border: '1px solid #d7e9fb',
+                  borderRadius: '20px',
+                  padding: '18px 20px',
+                  boxShadow: '0 12px 28px rgba(15, 23, 42, 0.08)',
+                  textAlign: 'left',
+                }}>
+                  <div style={{ fontSize: '0.74rem', color: '#1565c0', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.8px', marginBottom: '14px' }}>
+                    Top 5 mejores rankings
+                  </div>
+                  {rankingSummary?.topFive.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {rankingSummary.topFive.map((entry, index) => (
+                        <div key={entry.entryId}>
+                          {renderTopFiveRow(entry, index)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.86rem', color: '#64748b', lineHeight: 1.5 }}>
+                      Aún no hay resultados registrados.
+                    </div>
+                  )}
                 </div>
               </div>
 
